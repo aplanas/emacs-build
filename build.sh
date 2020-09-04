@@ -52,11 +52,9 @@ ASPELL_ES_VER="1.11-2"
 NETTLE_VER="3.6"
 GMP_VER="6.2.0"
 LIBTASN1_VER="4.16.0"
-GNUTLS_VER="3.6.14"
+GNUTLS_VER="3.6.15"
 GIFLIB_VER="5.2.1"
 LIBOTF_VER="0.9.16"
-ATTR_VER="2.4.48"
-ACL_VER="2.2.53"
 
 # Packages list, in installation order.  If the package is from 'wget',
 # the name will be deduced from the URL.  If the package is a 'git',
@@ -74,8 +72,8 @@ PACKAGES=(
     "gnutls","wget","https://www.gnupg.org/ftp/gcrypt/gnutls/v3.6/gnutls-$GNUTLS_VER.tar.xz"
 
     # ACL
-    "attr","wget","http://download.savannah.gnu.org/releases/attr/attr-$ATTR_VER.tar.gz"
-    "acl","wget","http://download.savannah.gnu.org/releases/acl/acl-$ACL_VER.tar.gz"
+    "attr","git","https://git.savannah.gnu.org/git/attr.git"
+    "acl","git","https://git.savannah.gnu.org/git/acl.git"
 
     # Giflib/Libungif
     "xmlto","git","https://pagure.io/xmlto.git"
