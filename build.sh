@@ -476,8 +476,7 @@ fi
 
 export PATH=\$PATH:$PREFIX/bin
 
-$PREFIX/bin/emacs --no-x-resources "\$@"
-
+$PREFIX/bin/emacs "\$@"
 EOF
     chmod a+x "$PREFIX_ROOT/emacs"
 }
