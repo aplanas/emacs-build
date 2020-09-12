@@ -381,6 +381,10 @@ function configure {
  ;; '(default ((t (:family "DejaVu Sans Mono" :foundry "unknown" :slant normal :weight normal :height 90 :width normal)))))
  '(default ((t (:family "Source Code Pro" :foundry "ADBO" :slant normal :weight normal :height 98 :width normal)))))
 
+;; Tramp uses the default remote path
+(require 'tramp)
+(add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+
 ;; Enable ido-mode
 (require 'ido)
 (ido-mode t)
@@ -445,6 +449,13 @@ function configure {
 (add-hook 'rust-mode-hook #'lsp-deferred)
 (setq lsp-rust-server 'rust-analyzer)
 
+;; Remote LSP for Python
+(lsp-register-client
+ (make-lsp-client :new-connection (lsp-tramp-connection "pyls-remote")
+                  :major-modes '(python-mode)
+                  :remote? t
+                  :server-id 'pyls-remote))
+
 ;; SSL connection for IRC (M-x erc-suse)
 (defun erc-suse ()
   (interactive)
@@ -457,9 +468,12 @@ function create_links {
     ln -srf $PREFIX/bin/* "$PREFIX_ROOT"
 }
 
-function create_emacs_shim {
-    rm "$PREFIX_ROOT/emacs"
-    cat > "$PREFIX_ROOT/emacs" <<EOF
+function create_shim {
+    local from=$1
+    local to=$2
+
+    rm "${to}" >>"$LOG" 2>&1 || true
+    cat > "${to}" <<EOF
 #! /bin/sh
 
 if [ -z \$LD_LIBRARY_PATH ]; then
@@ -476,9 +490,9 @@ fi
 
 export PATH=\$PATH:$PREFIX/bin
 
-$PREFIX/bin/emacs "\$@"
+${from} "\$@"
 EOF
-    chmod a+x "$PREFIX_ROOT/emacs"
+    chmod a+x "${to}"
 }
 
 create_backup
@@ -508,7 +522,8 @@ done
 
 configure
 create_links
-create_emacs_shim
+create_shim "$PREFIX/bin/emacs" "$PREFIX_ROOT/emacs"
+create_shim "$PREFIX/bin/pyls" "$PREFIX_ROOT/pyls-remote"
 
 echo -e "${BLUE}DONE${RESET}"
 
