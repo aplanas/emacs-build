@@ -55,6 +55,7 @@ LIBTASN1_VER="4.16.0"
 GNUTLS_VER="3.6.15"
 GIFLIB_VER="5.2.1"
 LIBOTF_VER="0.9.16"
+EMACS_VER="27.1"
 
 # Packages list, in installation order.  If the package is from 'wget',
 # the name will be deduced from the URL.  If the package is a 'git',
@@ -96,6 +97,7 @@ PACKAGES=(
     "gpm","git","https://github.com/telmich/gpm.git"
 
     # Emacs
+    # "emacs","wget","http://mirrors.kernel.org/gnu/emacs/emacs-$EMACS_VER.tar.xz"
     "emacs","git","https://git.savannah.gnu.org/git/emacs.git"
     "elpa","git","https://git.savannah.gnu.org/git/emacs/elpa.git"
 
