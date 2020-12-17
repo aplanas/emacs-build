@@ -47,12 +47,12 @@ BRIGHT_WHITE="\033[0;37m"
 RESET="\033[0m"
 
 ASPELL_VER="0.60.8"
-ASPELL_EN_VER="2019.10.06-0"
+ASPELL_EN_VER="2020.12.07-0"
 ASPELL_ES_VER="1.11-2"
 NETTLE_VER="3.6"
 GMP_VER="6.2.1"
 LIBTASN1_VER="4.16.0"
-GNUTLS_VER="3.6.15"
+GNUTLS_VER="3.7.0"
 GIFLIB_VER="5.2.1"
 LIBOTF_VER="0.9.16"
 EMACS_VER="27.1"
@@ -70,7 +70,7 @@ PACKAGES=(
     "nettle","wget","https://ftp.gnu.org/gnu/nettle/nettle-$NETTLE_VER.tar.gz"
     "gmp","wget","https://gmplib.org/download/gmp/gmp-$GMP_VER.tar.xz"
     "libtasn1","wget","https://ftp.gnu.org/gnu/libtasn1/libtasn1-$LIBTASN1_VER.tar.gz"
-    "gnutls","wget","https://www.gnupg.org/ftp/gcrypt/gnutls/v3.6/gnutls-$GNUTLS_VER.tar.xz"
+    "gnutls","wget","https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-$GNUTLS_VER.tar.xz"
 
     # ACL
     "attr","git","https://git.savannah.gnu.org/git/attr.git"
@@ -100,6 +100,7 @@ PACKAGES=(
     # "emacs","wget","http://mirrors.kernel.org/gnu/emacs/emacs-$EMACS_VER.tar.xz"
     "emacs","git","https://git.savannah.gnu.org/git/emacs.git"
     "elpa","git","https://git.savannah.gnu.org/git/emacs/elpa.git"
+    "nongnu","git","https://git.savannah.gnu.org/git/emacs/nongnu.git"
 
     # Python
     "python-language-server","pip","python-language-server[all]"
@@ -303,6 +304,10 @@ function compile_giflib {
 }
 
 function compile_elpa {
+    :
+}
+
+function compile_nongnu {
     :
 }
 
