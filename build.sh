@@ -454,7 +454,6 @@ function configure {
 (require 'lsp-mode)
 (add-hook 'python-mode-hook #'lsp-deferred)
 (add-hook 'rust-mode-hook #'lsp-deferred)
-(setq lsp-rust-server 'rust-analyzer)
 
 ;; Remote LSP for Python
 (lsp-register-client
