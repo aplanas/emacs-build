@@ -409,7 +409,7 @@ function configure {
   (package-refresh-contents))
 
 ;; Add optionally "lsp-ui company"
-(setq package-list '(yaml-mode rust-mode go-mode web-mode markdown-mode lsp-mode))
+(setq package-list '(yaml-mode rustic go-mode web-mode markdown-mode lsp-mode))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
@@ -428,12 +428,8 @@ function configure {
 (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
 (add-to-list 'auto-mode-alist '("\\.yaml\\'" . yaml-mode))
 
-;; Rust mode
-(autoload 'rust-mode "rust-mode" nil t)
-(add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-mode))
-(add-hook 'rust-mode-hook
-          (lambda () (setq indent-tabs-mode nil)))
-(setq rust-format-on-save t)
+;; Rustic mode
+(require 'rustic)
 
 ;; Golang mode
 (add-to-list 'load-path "~/.emacs.d/lisp/go-mode.el/")
