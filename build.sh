@@ -417,6 +417,9 @@ function configure {
 
 (setq load-path (cons "~/.emacs.d/lisp" load-path))
 
+;; Remove flymake warning message
+(remove-hook 'flymake-diagnostic-functions 'flymake-proc-legacy-flymake)
+
 ;; SLIME
 ;; (setq inferior-lisp-program "~/bin/sbcl") ; your Lisp system
 ;; (add-to-list 'load-path "~/bin/emacs-cvs/slime/")  ; your SLIME directory
