@@ -103,10 +103,11 @@ PACKAGES=(
     "nongnu","git","https://git.savannah.gnu.org/git/emacs/nongnu.git"
 
     # Python
-    "python-language-server","pip","python-language-server[all]"
+    "python-lsp-server","pip","python-lsp-server[all]"
     "pyls-mypy","pip","pyls-mypy"
     "pyls-isort","pip","pyls-isort"
     "pyls-black","pip","pyls-black"
+    "pyls-memestra","pip","pyls-memestra"
 )
 
 # Extra parameters for packages.  Used for autotools and python
