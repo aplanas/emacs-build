@@ -103,11 +103,13 @@ PACKAGES=(
     "nongnu","git","https://git.savannah.gnu.org/git/emacs/nongnu.git"
 
     # Python
+    "wheel","pip","wheel"
     "python-lsp-server","pip","python-lsp-server[all]"
-    "pyls-mypy","pip","pyls-mypy"
-    "pyls-isort","pip","pyls-isort"
-    "pyls-black","pip","pyls-black"
-    "pyls-memestra","pip","pyls-memestra"
+    # Still requires and install python-language-server
+    # "pyls-mypy","pip","pyls-mypy"
+    # "pyls-isort","pip","pyls-isort"
+    # "pyls-black","pip","pyls-black"
+    # "pyls-memestra","pip","pyls-memestra"
 )
 
 # Extra parameters for packages.  Used for autotools and python
@@ -279,7 +281,7 @@ function compile_pip {
     local package="$2"
     local options="$3"
 
-    pip install -I --prefix="$prefix" "$package" >>"$LOG" 2>&1
+    pip install -I --use-feature=2020-resolver --prefix="$prefix" "$package" >>"$LOG" 2>&1
 }
 
 function _compile_aspell_dict {
@@ -350,7 +352,7 @@ function compile_and_install {
     local normalized_name=$(normalize $name)
 
     pushd build >>"$LOG" 2>&1
-    # Check if there is ain specific compilation function
+    # Check if there is a specific compilation function
     if [ "$(type -t "compile_${normalized_name}")" = "function" ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with special function"
 	compile_${normalized_name} "$PREFIX" "$extra"
