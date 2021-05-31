@@ -85,6 +85,7 @@ PACKAGES=(
     "libxpm","git","https://gitlab.freedesktop.org/xorg/lib/libxpm.git"
 
     # ImageMagick
+    # "ImageMagick","wget","https://download.imagemagick.org/ImageMagick/download/ImageMagick.tar.gz"
     "ImageMagick","git","https://github.com/ImageMagick/ImageMagick.git"
 
     # Jansson
@@ -251,6 +252,9 @@ function untar {
 	    exit 1
 	    ;;
     esac
+
+    # LOCATION can be a bit different (maybe with a version attached)
+    LOCATION=$(find . -maxdepth 1 -type d -name "$LOCATION*" -print -quit)
 }
 
 function compile_autotools {
