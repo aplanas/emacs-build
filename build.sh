@@ -110,7 +110,7 @@ PACKAGES=(
     "mypy-ls","pip","mypy-ls"
     "pyls-isort","pip","pyls-isort"
     "python-lsp-black","pip","python-lsp-black"
-    "pyls-memestra","pip","pyls-memestra"
+    # "pyls-memestra","pip","pyls-memestra"
 )
 
 # Extra parameters for packages.  Used for autotools and python
