@@ -415,8 +415,8 @@ function configure {
 (unless package-archive-contents
   (package-refresh-contents))
 
-;; Add optionally "lsp-ui company"
-(setq package-list '(yaml-mode rustic go-mode web-mode markdown-mode lsp-mode))
+;; Add optionally "lsp-ui" and replace "rustic" with "rust-mode"
+(setq package-list '(yaml-mode rustic go-mode web-mode markdown-mode lsp-mode company))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
