@@ -117,8 +117,8 @@ PACKAGES=(
 # packages.
 declare -A COMPILE_OPTIONS=(
     ["gnutls"]="--with-included-unistring"
-    # ["emacs"]="--with-xpm=no"
 )
+[ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]="--with-native-compilation"
 
 # Used to return values from `git_clone_or_update`,
 # `wget_get_or_update`, `pip_get_or_update` and `untar`, as those
