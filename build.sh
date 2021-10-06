@@ -134,7 +134,7 @@ function error_report  {
 trap 'error_report $LINENO' ERR
 
 function exists {
-  eval '[ ${'$2'[$1]+default_key} ]'
+    eval '[ ${'$2'[$1]+default_key} ]'
 }
 
 function normalize {
