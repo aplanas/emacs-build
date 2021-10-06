@@ -111,6 +111,7 @@ PACKAGES=(
     "pyls-isort","pip","pyls-isort"
     "python-lsp-black","pip","python-lsp-black"
     # "pyls-memestra","pip","pyls-memestra"
+    "pylsp-rope","pip","pylsp-rope"
 )
 
 # Extra parameters for packages.  Used for autotools and python
