@@ -286,7 +286,7 @@ function compile_pip {
     local package="$2"
     local options="$3"
 
-    pip install -I --use-feature=2020-resolver --prefix="$prefix" "$package" >>"$LOG" 2>&1
+    pip install -I --prefix="$prefix" "$package" >>"$LOG" 2>&1
 }
 
 function _compile_aspell_dict {
