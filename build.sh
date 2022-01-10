@@ -190,7 +190,7 @@ function git_clone_or_update {
 
     if [ -d "$name" ]; then
 	echo -e "${GREEN}UPDATING${RESET} $name repository"
-	git -C "$name" pull --rebase >>"$LOG" 2>&1
+	git -C "$name" pull --rebase >>"$LOG" 2>&1 || echo -e "${RED}FAILED${RESET} $name repository"
     else
 	echo -e "${YELLOW}CLONING${RESET} $name repository"
 	git clone "$url" >>"$LOG" 2>&1
