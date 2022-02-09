@@ -462,6 +462,13 @@ function configure {
                   :remote? t
                   :server-id 'pyls-remote))
 
+;; Remote LSP for Rust
+(lsp-register-client
+ (make-lsp-client :new-connection (lsp-tramp-connection "rust-analyzer")
+                  :major-modes '(rustic-mode)
+                  :remote? t
+                  :server-id 'rust-analyzer-remote))
+
 ;; SSL connection for IRC (M-x erc-suse)
 (defun erc-suse ()
   (interactive)
@@ -529,7 +536,7 @@ done
 configure
 create_links
 create_shim "$PREFIX/bin/emacs" "$PREFIX_ROOT/emacs"
-create_shim "$PREFIX/bin/pyls" "$PREFIX_ROOT/pyls-remote"
+create_shim "$PREFIX/bin/pylsp" "$PREFIX_ROOT/pylsp-remote"
 
 echo -e "${BLUE}DONE${RESET}"
 
