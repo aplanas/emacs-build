@@ -457,10 +457,10 @@ function configure {
 
 ;; Remote LSP for Python
 (lsp-register-client
- (make-lsp-client :new-connection (lsp-tramp-connection "pyls-remote")
+ (make-lsp-client :new-connection (lsp-tramp-connection "pylsp-remote")
                   :major-modes '(python-mode)
                   :remote? t
-                  :server-id 'pyls-remote))
+                  :server-id 'pylsp-remote))
 
 ;; Remote LSP for Rust
 (lsp-register-client
