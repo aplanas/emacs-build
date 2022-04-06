@@ -52,10 +52,10 @@ ASPELL_ES_VER="1.11-2"
 NETTLE_VER="3.7.3"
 GMP_VER="6.2.1"
 LIBTASN1_VER="4.18.0"
-GNUTLS_VER="3.7.3"
+GNUTLS_VER="3.7.4"
 GIFLIB_VER="5.2.1"
 LIBOTF_VER="0.9.16"
-EMACS_VER="27.2"
+EMACS_VER="28.1"
 
 # Packages list, in installation order.  If the package is from 'wget',
 # the name will be deduced from the URL.  If the package is a 'git',
