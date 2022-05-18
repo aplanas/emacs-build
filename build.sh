@@ -410,13 +410,16 @@ function configure {
   (package-refresh-contents))
 
 ;; Add optionally "lsp-ui" and replace "rustic" with "rust-mode"
-(setq package-list '(yaml-mode rustic go-mode web-mode markdown-mode lsp-mode company))
+(setq package-list '(use-package yaml-mode rustic go-mode web-mode markdown-mode lsp-mode company))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
     (package-install package)))
 
 (setq load-path (cons "~/.emacs.d/lisp" load-path))
+
+;; use-package
+(require 'use-package)
 
 ;; SLIME
 ;; (setq inferior-lisp-program "~/bin/sbcl") ; your Lisp system
