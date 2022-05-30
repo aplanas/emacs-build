@@ -170,7 +170,6 @@ function create_backup {
 	    mkdir -p "$EMACS_CONFIG_DIR"
 	    cp -a "$backup/ido.last" "$EMACS_CONFIG_DIR" >>"$LOG" 2>&1 || true
 	    cp -a "$backup/network-security.data" "$EMACS_CONFIG_DIR" >>"$LOG" 2>&1 || true
-	    cp -a "$backup/.lsp-session-v1" "$EMACS_CONFIG_DIR" >>"$LOG" 2>&1 || true
 	fi
     fi
     mkdir -p "$EMACS_CONFIG_DIR/lisp"
@@ -409,8 +408,8 @@ function configure {
 (unless package-archive-contents
   (package-refresh-contents))
 
-;; Add optionally "lsp-ui" and replace "rustic" with "rust-mode"
-(setq package-list '(use-package yaml-mode rustic go-mode web-mode markdown-mode lsp-mode company))
+;; Replace "rust-mode" with "rustic"
+(setq package-list '(use-package yaml-mode rust-mode go-mode web-mode markdown-mode eglot company))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
@@ -432,8 +431,8 @@ function configure {
 (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
 (add-to-list 'auto-mode-alist '("\\.yaml\\'" . yaml-mode))
 
-;; Rustic mode
-(require 'rustic)
+;; Rust mode
+(require 'rust-mode)
 
 ;; Golang mode
 (add-to-list 'load-path "~/.emacs.d/lisp/go-mode.el/")
@@ -450,24 +449,9 @@ function configure {
 (add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
 
-;; LSP for Python, Rust
-(require 'lsp-mode)
-(add-hook 'python-mode-hook #'lsp-deferred)
-(add-hook 'rust-mode-hook #'lsp-deferred)
-
-;; Remote LSP for Python
-(lsp-register-client
- (make-lsp-client :new-connection (lsp-tramp-connection "pylsp-remote")
-                  :major-modes '(python-mode)
-                  :remote? t
-                  :server-id 'pylsp-remote))
-
-;; Remote LSP for Rust
-(lsp-register-client
- (make-lsp-client :new-connection (lsp-tramp-connection "rust-analyzer")
-                  :major-modes '(rustic-mode)
-                  :remote? t
-                  :server-id 'rust-analyzer-remote))
+;; Automatic eglot for certain modes
+(add-hook 'rust-mode-hook 'eglot-ensure)
+(add-hook 'python-mode-hook 'eglot-ensure)
 
 ;; SSL connection for IRC (M-x erc-suse)
 (defun erc-suse ()
