@@ -10,7 +10,7 @@ PREFIX="$PREFIX_ROOT/emacs-git"
 LOG="$DIR/build.log"
 EMACS_CONFIG="$HOME/.gnu-emacs"
 EMACS_CONFIG_DIR="$HOME/.emacs.d"
-PYTHON=python3.8
+PYTHON=$(readlink /usr/bin/python3)
 
 # Set the environment variables
 export PATH="$PATH":"$PREFIX/bin"
