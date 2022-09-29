@@ -410,7 +410,7 @@ function configure {
   (package-refresh-contents))
 
 ;; Replace "rust-mode" with "rustic"
-(setq package-list '(use-package yaml-mode rust-mode go-mode web-mode markdown-mode eglot company))
+(setq package-list '(use-package yaml-mode dockerfile-mode rust-mode go-mode web-mode markdown-mode eglot company))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
@@ -431,6 +431,10 @@ function configure {
 (require 'yaml-mode)
 (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
 (add-to-list 'auto-mode-alist '("\\.yaml\\'" . yaml-mode))
+
+;; Dockerfile mode
+(require 'dockerfile-mode)
+(setq dockerfile-mode-command "podman")
 
 ;; Rust mode
 (require 'rust-mode)
