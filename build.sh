@@ -410,7 +410,7 @@ function configure {
   (package-refresh-contents))
 
 ;; Replace "rust-mode" with "rustic"
-(setq package-list '(use-package yaml-mode dockerfile-mode rust-mode go-mode web-mode markdown-mode eglot company))
+(setq package-list '(use-package yaml-mode dockerfile-mode rust-mode go-mode web-mode markdown-mode company))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
