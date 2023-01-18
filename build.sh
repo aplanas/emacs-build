@@ -23,7 +23,7 @@ export ACLOCAL_PATH=$(aclocal --print-ac-dir):"$PREFIX/share/aclocal"
 export LDFLAGS="-L$PREFIX/lib64"
 export CPPFLAGS="-I$PREFIX/include"
 export LD_LIBRARY_PATH="$PREFIX/lib64"
-export PKG_CONFIG_PATH="$PREFIX/lib64/pkgconfig"
+export PKG_CONFIG_PATH="$PREFIX/lib64/pkgconfig:$PREFIX/share/pkgconfig"
 
 # Disable keyring
 export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
@@ -118,6 +118,7 @@ PACKAGES=(
 # packages.
 declare -A COMPILE_OPTIONS=(
     ["gnutls"]="--with-included-unistring"
+    ["libxpm"]="--disable-open-zfile"
 )
 [ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]="--with-native-compilation"
 
@@ -263,7 +264,7 @@ function compile_autotools {
     local options="$2"
 
     if [ ! -f configure -a -f autogen.sh ]; then
-	./autogen.sh >>"$LOG" 2>&1
+	./autogen.sh "$options" --prefix "$prefix" >>"$LOG" 2>&1
     elif [ ! -f configure -a ! -f autogen.sh ]; then
 	autoreconf -i >>"$LOG" 2>&1
     fi
@@ -309,6 +310,15 @@ function compile_giflib {
 
     make -j 4 >>"$LOG" 2>&1
     make PREFIX="$prefix" LIBDIR="$prefix/lib64" install >>"$LOG" 2>&1
+}
+
+function compile_emacs {
+    local prefix="$1"
+    local options="$2"
+
+    ./autogen.sh git >>"$LOG" 2>&1
+    ./autogen.sh autoconf >>"$LOG" 2>&1
+    compile_autotools "$prefix" "$options"
 }
 
 function compile_elpa {
