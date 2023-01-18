@@ -106,12 +106,12 @@ PACKAGES=(
     # Python
     "wheel","pip","wheel"
     "python-lsp-server","pip","python-lsp-server[all]"
-    "pyls-flake8","pip","pyls-flake8"
-    "mypy-ls","pip","mypy-ls"
+    "pylsp-mypy","pip","pylsp-mypy"
     "pyls-isort","pip","pyls-isort"
     "python-lsp-black","pip","python-lsp-black"
     # "pyls-memestra","pip","pyls-memestra"
     "pylsp-rope","pip","pylsp-rope"
+    "python-lsp-ruff","pip","python-lsp-ruff"
 )
 
 # Extra parameters for packages.  Used for autotools and python
@@ -470,6 +470,11 @@ function configure {
 ;; Automatic eglot for certain modes
 (add-hook 'rust-mode-hook 'eglot-ensure)
 (add-hook 'python-mode-hook 'eglot-ensure)
+
+;; Configure eglot for Python to use flake8
+(setq-default eglot-workspace-configuration
+              '((:pylsp
+		 . (:configurationSources ["flake8"] :plugins (:pycodestyle (:enabled nil) :mccabe (:enabled nil) :pyflakes (:enable nil) :flake8 (:enabled t))))))
 
 ;; SSL connection for IRC (M-x erc-suse)
 (defun erc-suse ()
