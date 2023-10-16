@@ -316,8 +316,8 @@ function compile_emacs {
     local prefix="$1"
     local options="$2"
 
-    ./autogen.sh git >>"$LOG" 2>&1
-    ./autogen.sh autoconf >>"$LOG" 2>&1
+    [ -e .git ] && ./autogen.sh git >>"$LOG" 2>&1
+    [ -e .git ] && ./autogen.sh autoconf >>"$LOG" 2>&1
     compile_autotools "$prefix" "$options"
 }
 
