@@ -52,7 +52,7 @@ ASPELL_ES_VER="1.11-2"
 NETTLE_VER="3.9.1"
 GMP_VER="6.3.0"
 LIBTASN1_VER="4.19.0"
-GNUTLS_VER="3.7.10"
+GNUTLS_VER="3.8.1"
 GIFLIB_VER="5.2.1"
 LIBOTF_VER="0.9.16"
 EMACS_VER="29.1"
@@ -70,7 +70,7 @@ PACKAGES=(
     "nettle","wget","https://ftp.gnu.org/gnu/nettle/nettle-$NETTLE_VER.tar.gz"
     "gmp","wget","https://gmplib.org/download/gmp/gmp-$GMP_VER.tar.xz"
     "libtasn1","wget","https://ftp.gnu.org/gnu/libtasn1/libtasn1-$LIBTASN1_VER.tar.gz"
-    "gnutls","wget","https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-$GNUTLS_VER.tar.xz"
+    "gnutls","wget","https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-$GNUTLS_VER.tar.xz"
 
     # ACL
     "attr","git","https://git.savannah.gnu.org/git/attr.git"
