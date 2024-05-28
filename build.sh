@@ -103,6 +103,9 @@ PACKAGES=(
     "elpa","git","https://git.savannah.gnu.org/git/emacs/elpa.git"
     "nongnu","git","https://git.savannah.gnu.org/git/emacs/nongnu.git"
 
+    # Emacs (not in MELPA)
+    "eglot-x","wget-raw","https://raw.githubusercontent.com/nemethf/eglot-x/master/eglot-x.el"
+
     # Python
     "wheel","pip","wheel"
     "python-lsp-server","pip","python-lsp-server[all]"
@@ -329,6 +332,13 @@ function compile_nongnu {
     :
 }
 
+function compile_eglot_x {
+    local prefix="$1"
+    local options="$2"
+
+    mv eglot-x.el "$EMACS_CONFIG_DIR/lisp"
+}
+
 function compile_and_install {
     local location="$1"
     local name="$2"
@@ -349,6 +359,10 @@ function compile_and_install {
 		exit 1
 	    fi
 	    mv "$LOCATION" build
+	    ;;
+	"wget-raw")
+	    mkdir build
+	    cp -a "$location" build
 	    ;;
 	"pip")
 	    mkdir build
@@ -476,6 +490,11 @@ function configure {
               '((:pylsp
 		 . (:configurationSources ["flake8"] :plugins (:pycodestyle (:enabled nil) :mccabe (:enabled nil) :pyflakes (:enable nil) :flake8 (:enabled t))))))
 
+;; Enable eglot-x
+(with-eval-after-load 'eglot
+  (require 'eglot-x)
+  (eglot-x-setup))
+
 ;; SSL connection for IRC (M-x erc-suse)
 (defun erc-suse ()
   (interactive)
@@ -526,7 +545,7 @@ for package in "${PACKAGES[@]}"; do
 	"git")
 	    git_clone_or_update "$name" "$url"
 	    ;;
-	"wget")
+	"wget"*)
 	    wget_get_or_update "$name" "$url"
 	    ;;
 	"pip")
