@@ -481,6 +481,9 @@ function configure {
 (add-to-list 'auto-mode-alist '("\\.mustache\\'" . web-mode))
 (add-to-list 'auto-mode-alist '("\\.djhtml\\'" . web-mode))
 
+;; Company mode
+(add-hook 'after-init-hook 'global-company-mode)
+
 ;; Automatic eglot for certain modes
 (add-hook 'rust-mode-hook 'eglot-ensure)
 (add-hook 'python-mode-hook 'eglot-ensure)
