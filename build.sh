@@ -55,7 +55,7 @@ LIBTASN1_VER="4.19.0"
 GNUTLS_VER="3.8.5"
 GIFLIB_VER="5.2.2"
 LIBOTF_VER="0.9.16"
-EMACS_VER="29.3"
+EMACS_VER="29.4"
 
 # Packages list, in installation order.  If the package is from 'wget',
 # the name will be deduced from the URL.  If the package is a 'git',
