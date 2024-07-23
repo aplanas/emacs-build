@@ -20,10 +20,10 @@ export PYTHONPATH="$PREFIX/lib/$PYTHON/site-packages:$PREFIX/lib64/$PYTHON/site-
 export ACLOCAL_PATH=$(aclocal --print-ac-dir):"$PREFIX/share/aclocal"
 
 # Needed because giflib and libXpm
-export LDFLAGS="-L$PREFIX/lib64"
+export LDFLAGS="-L$PREFIX/lib64 -L$PREFIX/lib"
 export CPPFLAGS="-I$PREFIX/include"
-export LD_LIBRARY_PATH="$PREFIX/lib64"
-export PKG_CONFIG_PATH="$PREFIX/lib64/pkgconfig:$PREFIX/share/pkgconfig"
+export LD_LIBRARY_PATH="$PREFIX/lib64:$PREFIX/lib"
+export PKG_CONFIG_PATH="$PREFIX/lib64/pkgconfig:$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
 
 # Disable keyring
 export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
@@ -97,6 +97,9 @@ PACKAGES=(
     # gpm
     "gpm","git","https://github.com/telmich/gpm.git"
 
+    # tree-sitter
+    "tree-sitter","git","https://github.com/tree-sitter/tree-sitter.git"
+
     # Emacs
     # "emacs","wget","http://mirrors.kernel.org/gnu/emacs/emacs-$EMACS_VER.tar.xz"
     "emacs","git","https://git.savannah.gnu.org/git/emacs.git"
@@ -122,8 +125,9 @@ PACKAGES=(
 declare -A COMPILE_OPTIONS=(
     ["gnutls"]="--with-included-unistring"
     ["libxpm"]="--disable-open-zfile"
+    ["emacs"]="--with-imagemagick"
 )
-[ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]="--with-native-compilation"
+[ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]+=" --with-native-compilation"
 
 # Used to return values from `git_clone_or_update`,
 # `wget_get_or_update`, `pip_get_or_update` and `untar`, as those
@@ -266,21 +270,28 @@ function compile_autotools {
     local prefix="$1"
     local options="$2"
 
-    if [ ! -f configure -a -f autogen.sh ]; then
-	./autogen.sh "$options" --prefix "$prefix" >>"$LOG" 2>&1
-    elif [ ! -f configure -a ! -f autogen.sh ]; then
+    if [ ! -f configure ] && [ -f autogen.sh ]; then
+	./autogen.sh $options --prefix "$prefix" >>"$LOG" 2>&1
+    elif [ ! -f configure ] && [ ! -f autogen.sh ]; then
 	autoreconf -i >>"$LOG" 2>&1
     fi
-    ./configure "$options" --prefix "$prefix" >>"$LOG" 2>&1
+    ./configure $options --prefix "$prefix" >>"$LOG" 2>&1
     make -j 4 bootstrap >>"$LOG" 2>&1 || true
     make -j 4 >>"$LOG" 2>&1
     make install >>"$LOG" 2>&1
 }
 
+function compile_make {
+    local prefix="$1"
+    local options="$2"
+
+    make -j 4 >>"$LOG" 2>&1
+    PREFIX="$1" make install >>"$LOG" 2>&1
+}
+
 function compile_python {
     local prefix="$1"
     local package="$2"
-    local options="$3"
 
     $PYTHON setup.py install --prefix="$prefix" "$package" >>"$LOG" 2>&1
 }
@@ -291,6 +302,14 @@ function compile_pip {
     local options="$3"
 
     pip install -I --prefix="$prefix" "$package" >>"$LOG" 2>&1
+}
+
+function compile_rust {
+    local prefix="$1"
+    local package="$2"
+
+    cargo build --release setup.py >>"$LOG" 2>&1
+    mv target/release/"$package" "$prefix"/bin/"$package"  >>"$LOG" 2>&1
 }
 
 function _compile_aspell_dict {
@@ -385,15 +404,21 @@ function compile_and_install {
     if [ "$(type -t "compile_${normalized_name}")" = "function" ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with special function"
 	compile_${normalized_name} "$PREFIX" "$extra"
-    elif [ -f configure.* -o -f autogen.sh ]; then
+    elif [ -f configure.* ] || [ -f autogen.sh ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with general autotools function"
 	compile_autotools "$PREFIX" "$extra"
+    elif [ -f Makefile ]; then
+	echo -e "${GREEN}COMPILING${RESET} $name with general make function"
+	compile_make "$PREFIX" "$extra"
     elif [ -f setup.py ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with general Python function"
 	compile_python "$PREFIX" "$extra"
     elif [ "$method" = "pip" ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with general pip function"
 	compile_pip "$PREFIX" "$location" "$extra"
+    elif [ -f Cargo.toml ]; then
+	echo -e "${GREEN}COMPILING${RESET} $name with general Rust function"
+	compile_rust "$PREFIX" "$extra"
     else
 	echo -e "${RED}ERROR${RESET} compilation method for $name not found"
 	exit 1
@@ -519,15 +544,15 @@ function create_shim {
 #! /bin/sh
 
 if [ -z \$LD_LIBRARY_PATH ]; then
-  export LD_LIBRARY_PATH=$PREFIX/lib64
+  export LD_LIBRARY_PATH=$PREFIX/lib64:$PREFIX/lib
 else
-  export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$PREFIX/lib64
+  export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$PREFIX/lib64:$PREFIX/lib
 fi
 
 if [ -z \$PYTHONPATH ]; then
-    export PYTHONPATH=$PREFIX/lib/$PYTHON/site-packages:$PREFIX/lib64/$PYTHON/site-packages
+    export PYTHONPATH=$PREFIX/lib64/$PYTHON/site-packages:$PREFIX/lib/$PYTHON/site-packages
 else
-    export PYTHONPATH=\$PYTHONPATH:$PREFIX/lib/$PYTHON/site-packages:$PREFIX/lib64/$PYTHON/site-packages
+    export PYTHONPATH=\$PYTHONPATH:$PREFIX/lib64/$PYTHON/site-packages:$PREFIX/lib/$PYTHON/site-packages
 fi
 
 export PATH=\$PATH:$PREFIX/bin
