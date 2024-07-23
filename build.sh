@@ -555,9 +555,22 @@ else
     export PYTHONPATH=\$PYTHONPATH:$PREFIX/lib64/$PYTHON/site-packages:$PREFIX/lib/$PYTHON/site-packages
 fi
 
-export PATH=\$PATH:$PREFIX/bin
+export PATH=$PREFIX/bin:\$PATH
 
 ${from} "\$@"
+EOF
+    chmod a+x "${to}"
+}
+
+function create_ld_shim {
+    local from=$1
+    local to=$2
+
+    rm "${to}" >>"$LOG" 2>&1 || true
+    cat > "${to}" <<EOF
+#! /bin/sh
+
+LD_LIBRARY_PATH= ${from} "\$@"
 EOF
     chmod a+x "${to}"
 }
@@ -591,6 +604,7 @@ configure
 create_links
 create_shim "$PREFIX/bin/emacs" "$PREFIX_ROOT/emacs"
 create_shim "$PREFIX/bin/pylsp" "$PREFIX_ROOT/pylsp-remote"
+create_ld_shim "/usr/bin/gs" "$PREFIX_ROOT/gs"
 
 echo -e "${BLUE}DONE${RESET}"
 
