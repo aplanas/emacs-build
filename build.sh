@@ -88,9 +88,6 @@ PACKAGES=(
     # "ImageMagick","wget","https://download.imagemagick.org/ImageMagick/download/ImageMagick.tar.gz"
     "ImageMagick","git","https://github.com/ImageMagick/ImageMagick.git"
 
-    # Jansson
-    "jansson","git","https://github.com/akheron/jansson.git"
-
     # Libotf
     "libotf","wget","http://download.savannah.gnu.org/releases/m17n/libotf-$LIBOTF_VER.tar.gz"
 
