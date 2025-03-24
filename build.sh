@@ -433,7 +433,14 @@ function configure {
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(cua-mode t nil (cua-base))
+ '(package-selected-packages nil)
  '(tool-bar-mode nil nil (tool-bar)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(default ((t (:family "Source Code Pro" :foundry "ADBO" :slant normal :weight regular :height 98 :width normal)))))
 
 ;; Tramp uses the default remote path
 (require 'tramp)
