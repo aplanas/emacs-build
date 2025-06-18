@@ -17,7 +17,8 @@ export PATH="$PATH":"$PREFIX/bin"
 export PYTHONPATH="$PREFIX/lib/$PYTHON/site-packages:$PREFIX/lib64/$PYTHON/site-packages"
 
 # Required for x11-macros
-export ACLOCAL_PATH=$(aclocal --print-ac-dir):"$PREFIX/share/aclocal"
+ACLOCAL_PATH=$(aclocal --print-ac-dir):"$PREFIX/share/aclocal"
+export ACLOCAL_PATH
 
 # Needed because giflib and libXpm
 export LDFLAGS="-L$PREFIX/lib64 -L$PREFIX/lib"
@@ -46,7 +47,6 @@ BRIGHT_CYAN="\033[0;36m"
 BRIGHT_WHITE="\033[0;37m"
 RESET="\033[0m"
 
-ASPELL_VER="0.60.8.1"
 ASPELL_EN_VER="2020.12.07-0"
 ASPELL_ES_VER="1.11-2"
 NETTLE_VER="3.10.1"
@@ -62,7 +62,7 @@ EMACS_VER="30.1"
 # the name of the repo needs to be like the first field of the tuple.
 PACKAGES=(
     # Aspell
-    "aspell","wget","ftp://ftp.gnu.org/gnu/aspell/aspell-$ASPELL_VER.tar.gz"
+    "aspell","git","https://git.savannah.gnu.org/git/aspell.git"
     "aspell6-en","wget","ftp://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-$ASPELL_EN_VER.tar.bz2"
     "aspell6-es","wget","ftp://ftp.gnu.org/gnu/aspell/dict/es/aspell6-es-$ASPELL_ES_VER.tar.bz2"
 
@@ -126,6 +126,11 @@ declare -A COMPILE_OPTIONS=(
 )
 [ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]+=" --with-native-compilation"
 
+declare -A PATCHES=(
+    ["gmp"]="inline",'--- ./configure.orig    2025-06-17 14:00:13.068556318 +0200\n+++ ./configure 2025-06-17 14:00:38.302579185 +0200\n@@ -6568,7 +6568,7 @@\n \n #if defined (__GNUC__) && ! defined (__cplusplus)\n typedef unsigned long long t1;typedef t1*t2;\n-void g(){}\n+void g(int a,t1 const* b,t1 c,t2 d,t1 const* e,int f){}\n void h(){}\n static __inline__ t1 e(t2 rp,t2 up,int n,t1 v0)\n {t1 c,x,r;int i;if(v0){c=1;for(i=1;i<n;i++){x=up[i];r=x+1;rp[i]=r;}}return c;}'
+    ["gpm"]="wget","https://patch-diff.githubusercontent.com/raw/telmich/gpm/pull/49.patch"
+)
+
 # Used to return values from `git_clone_or_update`,
 # `wget_get_or_update`, `pip_get_or_update` and `untar`, as those
 # functions generate data to stdout
@@ -139,18 +144,19 @@ function error_report  {
 trap 'error_report $LINENO' ERR
 
 function exists {
-    eval '[ ${'$2'[$1]+default_key} ]'
+    eval '[ ${'"$2"'[$1]+default_key} ]'
 }
 
 function normalize {
     local name=$1
-    echo $name | tr '-' '_'
+    echo "$name" | tr '-' '_'
 }
 
 function create_backup {
     mkdir -p backup
 
-    local backup="backup/emacs-git_$(date +"%Y%m%d")"
+    local backup
+    backup="backup/emacs-git_$(date +"%Y%m%d")"
     if [ -d "$PREFIX" ]; then
 	if [ ! -d "$backup" ]; then
 	    echo -e "${GREEN}BACKUP${RESET} current installation to $backup"
@@ -158,7 +164,7 @@ function create_backup {
 	fi
     fi
 
-    backup="backup/$(basename $EMACS_CONFIG)_$(date +"%Y%m%d")"
+    backup="backup/$(basename "$EMACS_CONFIG")_$(date +"%Y%m%d")"
     if [ -f "$EMACS_CONFIG" ]; then
 	if [ ! -f "$backup" ]; then
 	    echo -e "${GREEN}BACKUP${RESET} current configuration to $backup"
@@ -166,7 +172,7 @@ function create_backup {
 	fi
     fi
 
-    backup="backup/$(basename $EMACS_CONFIG_DIR)_$(date +"%Y%m%d")"
+    backup="backup/$(basename "$EMACS_CONFIG_DIR")_$(date +"%Y%m%d")"
     if [ -d "$EMACS_CONFIG_DIR" ]; then
 	if [ ! -d "$backup" ]; then
 	    echo -e "${GREEN}BACKUP${RESET} current .emacs.d to $backup"
@@ -209,7 +215,8 @@ function wget_get_or_update {
     local url="$2"
 
     # Recover the name of the file
-    local file_name=$(basename "$url")
+    local file_name
+    file_name=$(basename "$url")
 
     if [ -f "$file_name" ]; then
 	echo -e "${GREEN}UPDATED${RESET} file $name"
@@ -268,11 +275,11 @@ function compile_autotools {
     local options="$2"
 
     if [ ! -f configure ] && [ -f autogen.sh ]; then
-	./autogen.sh $options --prefix "$prefix" >>"$LOG" 2>&1
+	./autogen.sh "$options" --prefix "$prefix" >>"$LOG" 2>&1
     elif [ ! -f configure ] && [ ! -f autogen.sh ]; then
 	autoreconf -i >>"$LOG" 2>&1
     fi
-    ./configure $options --prefix "$prefix" >>"$LOG" 2>&1
+    ./configure "$options" --prefix "$prefix" >>"$LOG" 2>&1
     make -j 4 bootstrap >>"$LOG" 2>&1 || true
     make -j 4 >>"$LOG" 2>&1
     make install >>"$LOG" 2>&1
@@ -310,9 +317,7 @@ function compile_rust {
 }
 
 function _compile_aspell_dict {
-    ./configure >>"$LOG" 2>&1
-    make -j 4 >>"$LOG" 2>&1
-    make install >>"$LOG" 2>&1
+    { ./configure; make -j 4; make install; } >>"$LOG" 2>&1
 }
 
 function compile_aspell6_en {
@@ -390,18 +395,41 @@ function compile_and_install {
     esac
 
     local extra=
-    if exists $name COMPILE_OPTIONS; then
+    if exists "$name" COMPILE_OPTIONS; then
 	extra="${COMPILE_OPTIONS[$name]}"
     fi
 
-    local normalized_name=$(normalize $name)
+    local method_fix fix
+    if exists "$name" PATCHES; then
+	IFS=',' read -r method_fix fix <<< "${PATCHES[$name]}"
+	case "$method_fix" in
+	    "inline")
+		echo -e "$fix" > build/fix.patch
+		echo -e "${BLUE}PATCHING${RESET} $name with inline patch"
+		;;
+	    "wget")
+		wget -O build/fix.patch "$fix" >>"$LOG" 2>&1
+		echo -e "${BLUE}PATCHING${RESET} $name with remote patch"
+		;;
+	    *)
+		echo -e "${RED}ERROR${RESET} method $method_fix not found"
+		exit 1
+		;;
+	esac
+	pushd build >>"$LOG" 2>&1
+	patch -p1 < fix.patch >>"$LOG" 2>&1
+	popd >>"$LOG" 2>&1
+    fi
+
+    local normalized_name
+    normalized_name="$(normalize "$name")"
 
     pushd build >>"$LOG" 2>&1
     # Check if there is a specific compilation function
     if [ "$(type -t "compile_${normalized_name}")" = "function" ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with special function"
-	compile_${normalized_name} "$PREFIX" "$extra"
-    elif [ -f configure.* ] || [ -f autogen.sh ]; then
+	compile_"${normalized_name}" "$PREFIX" "$extra"
+    elif [ -f configure.sh ] || [ -f configure.ac ] || [ -f autogen.sh ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with general autotools function"
 	compile_autotools "$PREFIX" "$extra"
     elif [ -f Makefile ]; then
@@ -538,7 +566,7 @@ EOF
 }
 
 function create_links {
-    ln -srf $PREFIX/bin/* "$PREFIX_ROOT"
+    ln -srf "$PREFIX"/bin/* "$PREFIX_ROOT"
 }
 
 function create_shim {
@@ -587,7 +615,7 @@ mkdir -p "$DIR/artifacts" >"$LOG" 2>&1
 pushd "$DIR/artifacts" >>"$LOG" 2>&1
 
 for package in "${PACKAGES[@]}"; do
-    IFS=',' read name method url <<< "${package}"
+    IFS=',' read -r name method url <<< "${package}"
     case $method in
 	"git")
 	    git_clone_or_update "$name" "$url"
