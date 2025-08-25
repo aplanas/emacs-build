@@ -102,6 +102,7 @@ PACKAGES=(
     "emacs","git","https://git.savannah.gnu.org/git/emacs.git"
     "elpa","git","https://git.savannah.gnu.org/git/emacs/elpa.git"
     "nongnu","git","https://git.savannah.gnu.org/git/emacs/nongnu.git"
+    "org-mode","git","https://git.savannah.gnu.org/git/emacs/org-mode.git"
 
     # Emacs (not in MELPA)
     "eglot-x","wget-raw","https://raw.githubusercontent.com/nemethf/eglot-x/master/eglot-x.el"
