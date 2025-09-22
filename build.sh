@@ -55,6 +55,7 @@ LIBTASN1_VER="4.20.0"
 GNUTLS_VER="3.8.10"
 GIFLIB_VER="5.2.2"
 LIBOTF_VER="0.9.16"
+TREE_SITTER_VER="0.25.9"
 EMACS_VER="30.2"
 
 # Packages list, in installation order.  If the package is from 'wget',
@@ -95,7 +96,8 @@ PACKAGES=(
     "gpm","git","https://github.com/telmich/gpm.git"
 
     # tree-sitter
-    "tree-sitter","git","https://github.com/tree-sitter/tree-sitter.git"
+    "tree-sitter","wget","https://github.com/tree-sitter/tree-sitter/archive/refs/tags/v$TREE_SITTER_VER.tar.gz"
+    # "tree-sitter","git","https://github.com/tree-sitter/tree-sitter.git"
 
     # Emacs
     # "emacs","wget","http://mirrors.kernel.org/gnu/emacs/emacs-$EMACS_VER.tar.xz"
@@ -240,6 +242,7 @@ function pip_get_or_update {
 
 function untar {
     local name="$1"
+    local loc
 
     case "$name" in
 	*.tar.gz|*.tgz)
@@ -268,7 +271,16 @@ function untar {
     esac
 
     # LOCATION can be a bit different (maybe with a version attached)
-    LOCATION=$(find . -maxdepth 1 -type d -name "$LOCATION*" -print -quit)
+    loc=$(find . -maxdepth 1 -type d -name "$LOCATION*" -print -quit)
+    if [ -z "$loc" ]; then
+	    # Try github tags filename
+	    loc=$(find . -maxdepth 1 -type d -name "*${LOCATION#v}*" -print -quit)
+    fi
+    if [ -z "$loc" ]; then
+	    echo -e "${RED}ERROR${RESET} directory not found for $name"
+	    exit 1
+    fi
+    LOCATION="$loc"
 }
 
 function compile_autotools {
@@ -351,6 +363,10 @@ function compile_elpa {
 }
 
 function compile_nongnu {
+    :
+}
+
+function compile_org_mode {
     :
 }
 
