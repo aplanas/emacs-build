@@ -55,7 +55,7 @@ LIBTASN1_VER="4.20.0"
 GNUTLS_VER="3.8.10"
 GIFLIB_VER="5.2.2"
 LIBOTF_VER="0.9.16"
-TREE_SITTER_VER="0.25.9"
+TREE_SITTER_VER="0.25.10"
 EMACS_VER="30.2"
 
 # Packages list, in installation order.  If the package is from 'wget',
