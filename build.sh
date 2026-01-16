@@ -5,7 +5,11 @@ set -eu
 DIR="$(cd "$(dirname "$0")"; pwd -P)"
 
 # Configuration section
-PREFIX_ROOT="$HOME/bin"
+if [ -e "$HOME/.local/bin" ]; then
+    PREFIX_ROOT="$HOME/.local/bin"
+else
+    PREFIX_ROOT="$HOME/bin"
+fi
 PREFIX="$PREFIX_ROOT/emacs-git"
 LOG="$DIR/build.log"
 EMACS_CONFIG="$HOME/.gnu-emacs"
