@@ -51,15 +51,15 @@ BRIGHT_CYAN="\033[0;36m"
 BRIGHT_WHITE="\033[0;37m"
 RESET="\033[0m"
 
-ASPELL_EN_VER="2020.12.07-0"
+ASPELL_EN_VER="2026.02.25-0"
 ASPELL_ES_VER="1.11-2"
-NETTLE_VER="3.10.2"
+NETTLE_VER="4.0"
 GMP_VER="6.3.0"
-LIBTASN1_VER="4.20.0"
-GNUTLS_VER="3.8.11"
-GIFLIB_VER="5.2.2"
+LIBTASN1_VER="4.21.0"
+GNUTLS_VER="3.8.13"
+GIFLIB_VER="6.1.3"
 LIBOTF_VER="0.9.16"
-TREE_SITTER_VER="0.25.10"
+TREE_SITTER_VER="0.26.8"
 EMACS_VER="30.2"
 
 # Packages list, in installation order.  If the package is from 'wget',
@@ -83,7 +83,7 @@ PACKAGES=(
 
     # Giflib/Libungif
     "xmlto","git","https://pagure.io/xmlto.git"
-    "giflib","wget","https://downloads.sourceforge.net/project/giflib/giflib-$GIFLIB_VER.tar.gz"
+    "giflib","wget","https://downloads.sourceforge.net/project/giflib/giflib-6.x/giflib-$GIFLIB_VER.tar.gz"
 
     # LibXpm
     "macros","git","https://gitlab.freedesktop.org/xorg/util/macros.git"
@@ -100,8 +100,8 @@ PACKAGES=(
     "gpm","git","https://github.com/telmich/gpm.git"
 
     # tree-sitter
-    "tree-sitter","wget","https://github.com/tree-sitter/tree-sitter/archive/refs/tags/v$TREE_SITTER_VER.tar.gz"
-    # "tree-sitter","git","https://github.com/tree-sitter/tree-sitter.git"
+    # "tree-sitter","wget","https://github.com/tree-sitter/tree-sitter/archive/refs/tags/v$TREE_SITTER_VER.tar.gz"
+    "tree-sitter","git","https://github.com/tree-sitter/tree-sitter.git"
 
     # Emacs
     # "emacs","wget","http://mirrors.kernel.org/gnu/emacs/emacs-$EMACS_VER.tar.xz"
