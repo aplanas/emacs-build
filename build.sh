@@ -122,6 +122,14 @@ PACKAGES=(
     # "pyls-memestra","pip","pyls-memestra"
     "pylsp-rope","pip","pylsp-rope"
     "python-lsp-ruff","pip","python-lsp-ruff"
+
+    # Typst
+    # Compile with
+    #  gcc -fPIC -std=c99 -c parser.c
+    #  gcc -fPIC -std=c99 -c scanner.c
+    #  gcc -shared parser.o scanner.o  -o libtree-sitter-typst.so
+    # "tree-sitter-typst","git","https://github.com/uben0/tree-sitter-typst.git"
+    # "tinymist","git","https://github.com/Myriad-Dreamin/tinymist.git"
 )
 
 # Extra parameters for packages.  Used for autotools and python
