@@ -25,8 +25,10 @@ ACLOCAL_PATH=$(aclocal --print-ac-dir):"$PREFIX/share/aclocal"
 export ACLOCAL_PATH
 
 # Needed because giflib and libXpm
-export LDFLAGS="-L$PREFIX/lib64 -L$PREFIX/lib"
 export CPPFLAGS="-I$PREFIX/include"
+export CFLAGS="-O2 -pipe -march=native -mtune=native -fno-omit-frame-pointer -fno-plt -flto=auto"
+export LDFLAGS="-L$PREFIX/lib64 -L$PREFIX/lib"
+export LDFLAGS="$LDFLAGS -Wl,-O2 -Wl,-z,now -Wl,-z,relro -Wl,--sort-common -Wl,--as-needed -Wl,-z,pack-relative-relocs -flto=auto"
 export LD_LIBRARY_PATH="$PREFIX/lib64:$PREFIX/lib"
 export PKG_CONFIG_PATH="$PREFIX/lib64/pkgconfig:$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
 
@@ -137,8 +139,13 @@ PACKAGES=(
 declare -A COMPILE_OPTIONS=(
     ["gnutls"]="--with-included-unistring"
     ["libxpm"]="--disable-open-zfile"
-    ["emacs"]="--with-imagemagick"
+    ["emacs"]="--with-cairo --without-xft --with-harfbuzz --without-libotf --with-gnutls --without-xdbe --without-xim --without-gpm --disable-gc-mark-trace --enable-link-time-optimization --with-gsettings --with-modules --with-threads --with-libgmp --with-xml2 --with-tree-sitter --with-zlib --without-included-regex --with-file-notification=inotify --without-compress-install --with-imagemagick"
 )
+if [ "$XDG_SESSION_TYPE" = "x11" ]; then
+    COMPILE_OPTIONS["emacs"]+=" --with-x --with-x-toolkit=gtk3"
+elif [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+    COMPILE_OPTIONS["emacs"]+=" --without-x --with-pgtk --with-toolkit-scroll-bars"
+fi
 [ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]+=" --with-native-compilation"
 
 declare -A PATCHES=(
@@ -300,21 +307,28 @@ function compile_autotools {
     local options="$2"
 
     if [ ! -f configure ] && [ -f autogen.sh ]; then
-	./autogen.sh "$options" --prefix "$prefix" >>"$LOG" 2>&1
+	./autogen.sh $options --prefix "$prefix" >>"$LOG" 2>&1
     elif [ ! -f configure ] && [ ! -f autogen.sh ]; then
 	autoreconf -i >>"$LOG" 2>&1
     fi
-    ./configure "$options" --prefix "$prefix" >>"$LOG" 2>&1
-    make -j 4 bootstrap >>"$LOG" 2>&1 || true
-    make -j 4 >>"$LOG" 2>&1
-    make install >>"$LOG" 2>&1
+    ./configure $options --prefix "$prefix" >>"$LOG" 2>&1
+    make -j "$(nproc)" -l "$(nproc --ignore=1)" bootstrap >>"$LOG" 2>&1 || true
+    make -j "$(nproc)" -l "$(nproc --ignore=1)" >>"$LOG" 2>&1
+
+    local exit_code=0
+    make -q install-strip &>/dev/null || exit_code="$?"
+    if [ "$exit_code" -lt 2 ]; then
+	make install-strip >>"$LOG" 2>&1
+    else
+	make install >>"$LOG" 2>&1
+    fi
 }
 
 function compile_make {
     local prefix="$1"
     local options="$2"
 
-    make -j 4 >>"$LOG" 2>&1
+    make -j "$(nproc)" -l "$(nproc --ignore=1)" >>"$LOG" 2>&1
     PREFIX="$1" make install >>"$LOG" 2>&1
 }
 
@@ -342,7 +356,7 @@ function compile_rust {
 }
 
 function _compile_aspell_dict {
-    { ./configure; make -j 4; make install; } >>"$LOG" 2>&1
+    { ./configure; make -j "$(nproc)" -l "$(nproc --ignore=1)"; make install; } >>"$LOG" 2>&1
 }
 
 function compile_aspell6_en {
@@ -357,13 +371,60 @@ function compile_giflib {
     local prefix="$1"
     local options="$2"
 
-    make -j 4 >>"$LOG" 2>&1
+    make -j "$(nproc)" -l "$(nproc --ignore=1)" >>"$LOG" 2>&1
     make PREFIX="$prefix" LIBDIR="$prefix/lib64" install >>"$LOG" 2>&1
 }
 
 function compile_emacs {
     local prefix="$1"
     local options="$2"
+
+    # Check https://www.jamescherti.com/compiling-emacs/
+    if [ -f /usr/include/libgccjit.h ]; then
+	cat >"$EMACS_CONFIG_DIR/early-init.el" <<'EOF'
+;;; ...  -*- lexical-binding: t -*-
+
+;; Display the architecture using:
+;;   gcc -march=native -Q --help=target | grep march
+;;
+;; The above command asks the compiler to resolve native for your current CPU
+;; and display the resulting target. For example, if the output shows
+;; -march=skylake, you know that skylake is the identifier you should pass to
+;; -mtune and -march.
+(setq my-cpu-architecture "skylake")
+
+;; `native-comp-compiler-options' specifies flags passed directly to the C
+;; compiler (for example, GCC) when compiling the Lisp-to-C output
+;; produced by the native compilation process. These flags affect code
+;; generation, optimization, and debugging information.
+(setq native-comp-compiler-options `(;; The most meaningful optimizations:
+                                     "-O2"
+                                     ,(format "-mtune=%s" my-cpu-architecture)
+                                     ,(format "-march=%s" my-cpu-architecture)
+                                     ;; Reduce .eln size and compilation
+                                     ;; overhead.
+                                     "-g0"
+                                     ;; Good defensive choice for Emacs
+                                     ;; stability.
+                                     "-fno-omit-frame-pointer"
+                                     "-fno-finite-math-only"))
+
+(setq native-comp-driver-options '(;; -Wl,-z,pack-relative-relocs compresses
+                                   ;; relocation tables to reduce file size and
+                                   ;; slightly improve load times.
+                                   "-Wl,-z,pack-relative-relocs"
+                                   ;; -Wl,-O2 applies standard linker-level
+                                   ;; optimizations (like string merging) to the
+                                   ;; generated shared object.
+                                   "-Wl,-O2"
+                                   ;; -Wl,--as-needed prevents the linker from
+                                   ;; recording dependencies on libraries that
+                                   ;; are not actually used by the code.
+                                   "-Wl,--as-needed"))
+EOF
+
+	find "$EMACS_CONFIG_DIR/" -name '*.eln' -delete
+    fi
 
     [ -e .git ] && ./autogen.sh git >>"$LOG" 2>&1
     [ -e .git ] && ./autogen.sh autoconf >>"$LOG" 2>&1
