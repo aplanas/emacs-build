@@ -586,7 +586,7 @@ function configure {
   (package-refresh-contents))
 
 ;; Replace "rust-mode" with "rustic"
-(setq package-list '(use-package yaml-mode dockerfile-mode rust-mode go-mode web-mode markdown-mode company))
+(setq package-list '(use-package yaml-mode dockerfile-mode rust-mode web-mode markdown-mode company))
 
 (dolist (package package-list)
   (unless (package-installed-p package)
@@ -614,11 +614,6 @@ function configure {
 
 ;; Rust mode
 (require 'rust-mode)
-
-;; Golang mode
-(add-to-list 'load-path "~/.emacs.d/lisp/go-mode.el/")
-(autoload 'go-mode "go-mode" nil t)
-(add-to-list 'auto-mode-alist '("\\.go\\'" . go-mode))
 
 ;; Web mode
 (require 'web-mode)
