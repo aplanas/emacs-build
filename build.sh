@@ -29,6 +29,7 @@ export CPPFLAGS="-I$PREFIX/include"
 export CFLAGS="-O2 -pipe -march=native -mtune=native -fno-omit-frame-pointer -fno-plt -flto=auto"
 export LDFLAGS="-L$PREFIX/lib64 -L$PREFIX/lib"
 export LDFLAGS="$LDFLAGS -Wl,-O2 -Wl,-z,now -Wl,-z,relro -Wl,--sort-common -Wl,--as-needed -Wl,-z,pack-relative-relocs -flto=auto"
+# Export this variable as LD_LIBRARY_PATH when compiling
 export LD_LIBRARY_PATH="$PREFIX/lib64:$PREFIX/lib"
 export PKG_CONFIG_PATH="$PREFIX/lib64/pkgconfig:$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
 
@@ -80,8 +81,8 @@ PACKAGES=(
     "gnutls","wget","https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-$GNUTLS_VER.tar.xz"
 
     # ACL
-    "attr","git","https://git.savannah.gnu.org/git/attr.git"
-    "acl","git","https://git.savannah.gnu.org/git/acl.git"
+    # "attr","git","https://git.savannah.gnu.org/git/attr.git"
+    # "acl","git","https://git.savannah.gnu.org/git/acl.git"
 
     # Giflib/Libungif
     "xmlto","git","https://pagure.io/xmlto.git"
@@ -96,7 +97,7 @@ PACKAGES=(
     "ImageMagick","git","https://github.com/ImageMagick/ImageMagick.git"
 
     # Libotf
-    "libotf","wget","http://download.savannah.gnu.org/releases/m17n/libotf-$LIBOTF_VER.tar.gz"
+    # "libotf","wget","http://download.savannah.gnu.org/releases/m17n/libotf-$LIBOTF_VER.tar.gz"
 
     # gpm
     "gpm","git","https://github.com/telmich/gpm.git"
@@ -311,6 +312,7 @@ function compile_autotools {
     elif [ ! -f configure ] && [ ! -f autogen.sh ]; then
 	autoreconf -i >>"$LOG" 2>&1
     fi
+
     ./configure $options --prefix "$prefix" >>"$LOG" 2>&1
     make -j "$(nproc)" -l "$(nproc --ignore=1)" bootstrap >>"$LOG" 2>&1 || true
     make -j "$(nproc)" -l "$(nproc --ignore=1)" >>"$LOG" 2>&1
