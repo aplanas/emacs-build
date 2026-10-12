@@ -142,9 +142,9 @@ declare -A COMPILE_OPTIONS=(
     ["libxpm"]="--disable-open-zfile"
     ["emacs"]="--with-cairo --without-xft --with-harfbuzz --without-libotf --with-gnutls --without-xdbe --without-xim --without-gpm --disable-gc-mark-trace --enable-link-time-optimization --with-gsettings --with-modules --with-threads --with-libgmp --with-xml2 --with-tree-sitter --with-zlib --without-included-regex --with-file-notification=inotify --without-compress-install --with-imagemagick"
 )
-if [ "$XDG_SESSION_TYPE" = "x11" ]; then
+if [ "${XDG_SESSION_TYPE:-}" = "x11" ]; then
     COMPILE_OPTIONS["emacs"]+=" --with-x --with-x-toolkit=gtk3"
-elif [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+elif [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
     COMPILE_OPTIONS["emacs"]+=" --without-x --with-pgtk --with-toolkit-scroll-bars"
 fi
 [ -f /usr/include/libgccjit.h ] && COMPILE_OPTIONS["emacs"]+=" --with-native-compilation"
@@ -221,10 +221,20 @@ function git_clone_or_update {
     local name="$1"
     local url="$2"
 
+    # Run the automatic gc / maintenance in the foreground, so it does
+    # not modify .git/objects while the repository is copied later
+    local git_opts=(-c gc.autoDetach=false -c maintenance.autoDetach=false)
+
     if [ -d "$name" ]; then
 	echo -e "${GREEN}UPDATING${RESET} $name repository"
-	git -C "$name" fetch --all -p --force >>"$LOG" 2>&1 || echo -e "${RED}FAILED${RESET} $name repository"
-	git -C "$name" pull --rebase >>"$LOG" 2>&1 || echo -e "${RED}FAILED${RESET} $name repository"
+	if ! git "${git_opts[@]}" -C "$name" fetch --all -p --force >>"$LOG" 2>&1; then
+	    echo -e "${RED}ERROR${RESET} fetching $name repository, check $LOG"
+	    exit 1
+	fi
+	if ! git "${git_opts[@]}" -C "$name" pull --rebase >>"$LOG" 2>&1; then
+	    echo -e "${RED}ERROR${RESET} updating $name repository, check $LOG"
+	    exit 1
+	fi
     else
 	echo -e "${YELLOW}CLONING${RESET} $name repository"
 	git clone "$url" >>"$LOG" 2>&1
@@ -264,24 +274,16 @@ function untar {
     local name="$1"
     local loc
 
+    # The directory is the top level entry of the archive, that can
+    # be different from the file name (maybe with a version attached,
+    # or a github tag)
     case "$name" in
-	*.tar.gz|*.tgz)
-	    LOCATION=${name%.tar.gz}
-	    LOCATION=${LOCATION%.tgz}
-	    tar -xzvf "$name" >>"$LOG" 2>&1
-	    ;;
-	*.tar.bz2|*.tbz)
-	    LOCATION=${name%.tar.bz2}
-	    LOCATION=${LOCATION%.tbz}
-	    tar -xjvf "$name" >>"$LOG" 2>&1
-	    ;;
-	*.tar.xz|*.txz)
-	    LOCATION=${name%.tar.xz}
-	    LOCATION=${LOCATION%.txz}
-	    tar -xJvf "$name" >>"$LOG" 2>&1
+	*.tar.gz|*.tgz|*.tar.bz2|*.tbz|*.tar.xz|*.txz)
+	    loc=$(tar -tf "$name" | head -n 1)
+	    tar -xvf "$name" >>"$LOG" 2>&1
 	    ;;
 	*.zip)
-	    LOCATION=${name%.zip}
+	    loc=$(unzip -Z1 "$name" | head -n 1)
 	    unzip "$name" >>"$LOG" 2>&1
 	    ;;
 	*)
@@ -290,13 +292,9 @@ function untar {
 	    ;;
     esac
 
-    # LOCATION can be a bit different (maybe with a version attached)
-    loc=$(find . -maxdepth 1 -type d -name "$LOCATION*" -print -quit)
-    if [ -z "$loc" ]; then
-	    # Try github tags filename
-	    loc=$(find . -maxdepth 1 -type d -name "*${LOCATION#v}*" -print -quit)
-    fi
-    if [ -z "$loc" ]; then
+    loc="${loc#./}"
+    loc="${loc%%/*}"
+    if [ -z "$loc" ] || [ ! -d "$loc" ]; then
 	    echo -e "${RED}ERROR${RESET} directory not found for $name"
 	    exit 1
     fi
@@ -336,9 +334,9 @@ function compile_make {
 
 function compile_python {
     local prefix="$1"
-    local package="$2"
+    local options="$2"
 
-    $PYTHON setup.py install --prefix="$prefix" "$package" >>"$LOG" 2>&1
+    $PYTHON setup.py install --prefix="$prefix" $options >>"$LOG" 2>&1
 }
 
 function compile_pip {
@@ -353,8 +351,9 @@ function compile_rust {
     local prefix="$1"
     local package="$2"
 
-    cargo build --release setup.py >>"$LOG" 2>&1
-    mv target/release/"$package" "$prefix"/bin/"$package"  >>"$LOG" 2>&1
+    cargo build --release >>"$LOG" 2>&1
+    mkdir -p "$prefix/bin"
+    mv target/release/"$package" "$prefix/bin/$package" >>"$LOG" 2>&1
 }
 
 function _compile_aspell_dict {
@@ -463,7 +462,7 @@ function compile_and_install {
 
     case "$method" in
 	"git")
-	    cp -a "$location" build
+	    cp -a "$location" build >>"$LOG" 2>&1
 	    ;;
 	"wget")
 	    untar "$location"
@@ -535,7 +534,7 @@ function compile_and_install {
 	compile_pip "$PREFIX" "$location" "$extra"
     elif [ -f Cargo.toml ]; then
 	echo -e "${GREEN}COMPILING${RESET} $name with general Rust function"
-	compile_rust "$PREFIX" "$extra"
+	compile_rust "$PREFIX" "$name"
     else
 	echo -e "${RED}ERROR${RESET} compilation method for $name not found"
 	exit 1
