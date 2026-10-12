@@ -1,0 +1,4 @@
+artifacts/
+backup/
+build.log
+.build.lock
