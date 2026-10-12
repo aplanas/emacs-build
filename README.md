@@ -11,7 +11,8 @@ Simple bash script to build GNU/Emacs from git in openSUSE Tumbleweed.
     ./build.sh --help           # all the options
 
 Only the packages that changed since the last build (and the ones
-that depend on them, see `DEPENDS` in `build.sh`) are rebuilt.  If
+that depend on them, as declared in `declare_packages` in `build.sh`)
+are rebuilt.  If
 the build fails, the previous installation is restored, and the
 script shows the last version of the package that built, and the
 packages that depend on it.  `./build.sh --restore [YYYYMMDD]` brings
@@ -28,8 +29,8 @@ to the default branch later with `./build.sh --unpin <package>`.  The
 pins are kept in the file `pins`, and `--check-updates` shows the last
 tag of the pinned packages.
 
-The packages that only come as tarballs are verified with
-`SHA256SUMS`.  `--update` moves them (and their checksums) to the
+The packages that only come as tarballs (their versions are in the
+`VERSION` table of `build.sh`) are verified with `SHA256SUMS`.  `--update` moves them (and their checksums) to the
 last version of the same series; a new series (like GnuTLS v3.9) is
 reported by `--check-updates` and needs to be changed by hand in
 `build.sh`.  Patches in
@@ -37,4 +38,8 @@ reported by `--check-updates` and needs to be changed by hand in
 
 Emacs is built for Wayland (PGTK) when `XDG_SESSION_TYPE` is
 `wayland`, and for X11 (GTK3) otherwise.  The packages only needed by
-X11 (like libXpm) are marked with `x11` in the packages list.
+X11 (like libXpm) are declared with `x11_package`.
+
+The Emacs configuration (`~/.gnu-emacs` and `~/.emacs.d/early-init.el`)
+is installed from the `config` directory, after a backup of the
+previous one in `backup`.
