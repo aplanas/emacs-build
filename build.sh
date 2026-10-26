@@ -727,6 +727,33 @@ EOF
     chmod a+x "$shim"
 }
 
+# Wayland shows the icon of the desktop file named as the app_id of
+# the window ("emacs").  Install the ones of the prefix, running the
+# shim
+function install_desktop_entry {
+    local data="${XDG_DATA_HOME:-$HOME/.local/share}" icon size
+    for icon in "$PREFIX"/share/icons/hicolor/*/apps/emacs.{png,svg}; do
+	[ -f "$icon" ] || continue
+	size=$(basename "$(dirname "$(dirname "$icon")")")
+	mkdir -p "$data/icons/hicolor/$size/apps"
+	cp "$icon" "$data/icons/hicolor/$size/apps"
+    done
+    mkdir -p "$data/applications"
+    sed "s|^Exec=emacs |Exec=$PREFIX_ROOT/emacs |" "$PREFIX/share/applications/emacs.desktop" \
+	>"$data/applications/emacs.desktop"
+
+    # An outdated icon cache would hide the new icons
+    if [ -f "$data/icons/hicolor/icon-theme.cache" ]; then
+	gtk-update-icon-cache -q -f -t "$data/icons/hicolor" || true
+    fi
+    update-desktop-database -q "$data/applications" 2>/dev/null || true
+    # The running KDE programs (like the Plasma panel) read the icon
+    # directories when they start, and do not see the new ones (showing
+    # a generic icon) until they are told to reload them
+    gdbus emit --session --object-path /KIconLoader \
+	  --signal org.kde.KIconLoader.iconChanged 0 >/dev/null 2>&1 || true
+}
+
 function install_links {
     ln -srf "$PREFIX"/bin/* "$PREFIX_ROOT"
     # Remove the links to programs not installed anymore
@@ -737,6 +764,9 @@ function install_links {
     rm -f "$PREFIX_ROOT/gs"
     printf '#! /bin/sh\n\nLD_LIBRARY_PATH= /usr/bin/gs "$@"\n' >"$PREFIX_ROOT/gs"
     chmod a+x "$PREFIX_ROOT/gs"
+    if [ -n "$WAYLAND" ]; then
+	install_desktop_entry
+    fi
 }
 
 # Warn about the binaries installed now that do not find their
