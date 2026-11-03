@@ -664,11 +664,11 @@ function snapshot_prefix {
 }
 
 # After a successful build, the previous installation is the backup of
-# the day
+# the day (only with --keep, it is discarded otherwise)
 function release_snapshot {
     local backup="$BACKUP_DIR/emacs-git_$TODAY"
     [ -d "$ROLLBACK" ] || return 0
-    if [ -d "$backup" ]; then
+    if [ -z "$OPT_KEEP" ] || [ -d "$backup" ]; then
 	rm -fr "$ROLLBACK"
     else
 	say "$GREEN" BACKUP "previous installation to $backup"
@@ -677,12 +677,54 @@ function release_snapshot {
     fi
 }
 
+# Backups made by this build, removed at the end unless --keep is used
+NEW_BACKUPS=()
+
 # Move a file to the backup of the day, if there is not one already
 function backup_once {
     local file="$1" backup="$2"
     if [ -e "$file" ] && [ ! -e "$backup" ]; then
 	say "$GREEN" BACKUP "$file to $backup"
 	mv "$file" "$backup"
+	NEW_BACKUPS+=("$backup")
+    fi
+}
+
+# Without --keep, remove the configuration backups made by this build.
+# The ones of previous builds (made with --keep) are left alone
+function remove_new_backups {
+    local backup
+    [ -z "$OPT_KEEP" ] || return 0
+    for backup in "${NEW_BACKUPS[@]}"; do
+	rm -fr "$backup"
+    done
+    rmdir "$BACKUP_DIR" 2>/dev/null || true
+}
+
+# Remove the tarballs (and their checksums) of the versions not used
+# anymore, like the previous version of an updated package.  Done after
+# a successful build, so the old version is there if the new one fails
+function clean_old_tarballs {
+    local name file current=" "
+    for name in "${ORDER[@]}"; do
+	if [ "${METHOD[$name]}" = "tarball" ]; then
+	    current+="$(basename "${SOURCE[$name]}") "
+	fi
+    done
+    for file in "$ARTIFACTS"/*; do
+	name=$(basename "$file")
+	if [[ -f "$file" && "$name" =~ \.(tar\.(gz|bz2|xz)|tgz|tbz|txz)$ && "$current" != *" $name "* ]]; then
+	    say "$GREEN" CLEANING "$name, not used anymore"
+	    rm -f "$file"
+	fi
+    done
+    awk -v current="$current" '
+	$2 !~ /\.(tar\.(gz|bz2|xz)|tgz|tbz|txz)$/ || index(current, " " $2 " ")
+    ' "$CHECKSUMS" >"$CHECKSUMS.new"
+    if cmp -s "$CHECKSUMS" "$CHECKSUMS.new"; then
+	rm -f "$CHECKSUMS.new"
+    else
+	mv "$CHECKSUMS.new" "$CHECKSUMS"
     fi
 }
 
@@ -864,6 +906,9 @@ Options:
   --clean          Rebuild all the packages into an empty prefix
   --rebuild PKG    Force the rebuild of PKG (can be used several times)
   --offline        Do not update the sources, nor install pip packages
+  --keep           Keep the backups and $(basename "$LOG") after a successful
+                   build (by default they are removed; the log is
+                   also kept if there were warnings)
   --update         Update the tarball packages to their last version
                    (and their checksums), and build
   --check-updates  Report new versions of the packages, and exit
@@ -872,7 +917,8 @@ Options:
                    commit; by default the last one that built), and exit
   --unpin PKG      Build PKG again from its default branch, and exit
   --restore [DATE] Restore the installation from the backup of DATE
-                   (YYYYMMDD, by default the last one), and exit
+                   (YYYYMMDD, by default the last one; only the builds
+                   with --keep make one), and exit
   -j, --jobs N     Number of parallel jobs (default: $(nproc))
   -h, --help       Show this help
 EOF
@@ -925,7 +971,7 @@ function cmd_check_updates {
 # Change the versions of the tarball packages in this script, and add
 # the checksums of the new files (trusted, downloaded with HTTPS)
 function update_versions {
-    local name newest url file old
+    local name newest url file
     mkdir -p "$ARTIFACTS"
     for name in "${ORDER[@]}"; do
 	[ "${METHOD[$name]}" = "tarball" ] || continue
@@ -943,8 +989,9 @@ function update_versions {
 	    continue
 	fi
 	mv "$file.part" "$file"
-	old=$(basename "${SOURCE[$name]}")
-	awk -v old="$old" -v new="$(basename "$file")" '$2 != old && $2 != new' "$CHECKSUMS" >"$CHECKSUMS.new"
+	# The old tarball and its checksum are removed after the build
+	# succeeds, so it can be set back in VERSION if the new one fails
+	awk -v new="$(basename "$file")" '$2 != new' "$CHECKSUMS" >"$CHECKSUMS.new"
 	echo "$(sha256sum "$file" | cut -d' ' -f1)  $(basename "$file")" >>"$CHECKSUMS.new"
 	mv "$CHECKSUMS.new" "$CHECKSUMS"
 	sed -i "s|^\([[:space:]]*\[\"$name\"\]=\)\"${VERSION[$name]//./\\.}\"|\1\"$newest\"|" "$SCRIPT"
@@ -1030,6 +1077,9 @@ function cmd_build {
     install_links
     check_libraries "$start"
     release_snapshot
+    remove_new_backups
+    clean_old_tarballs
+    rm -f "$start"
 }
 
 # ----------------------------------------------------------------------
@@ -1039,6 +1089,7 @@ function cmd_build {
 COMMAND=build
 OPT_CLEAN=
 OPT_OFFLINE=
+OPT_KEEP=
 OPT_REBUILD=()
 declare -A FORCE=()
 PIN_NAME=
@@ -1050,6 +1101,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
 	--clean) OPT_CLEAN=1 ;;
 	--offline) OPT_OFFLINE=1 ;;
+	--keep) OPT_KEEP=1 ;;
 	--rebuild) [ $# -ge 2 ] || { usage; exit 1; }; OPT_REBUILD+=("$2"); shift ;;
 	--update) COMMAND=update ;;
 	--check-updates) COMMAND=check-updates ;;
@@ -1141,5 +1193,10 @@ if [ -n "$WARNINGS_HIDDEN" ]; then
     for message in "${WARNINGS[@]}"; do
 	say "$YELLOW" WARNING "$message"
     done
+fi
+# The log is only needed if something went wrong: the warnings refer
+# to it
+if [ -z "$OPT_KEEP" ] && [ ${#WARNINGS[@]} -eq 0 ]; then
+    rm -f "$LOG"
 fi
 say "$BLUE" DONE ""

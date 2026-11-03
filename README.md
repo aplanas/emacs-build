@@ -15,8 +15,10 @@ that depend on them, as declared in `declare_packages` in `build.sh`)
 are rebuilt.  If
 the build fails, the previous installation is restored, and the
 script shows the last version of the package that built, and the
-packages that depend on it.  `./build.sh --restore [YYYYMMDD]` brings
-back the installation of a previous day.
+packages that depend on it.  After a successful build, the backups
+made by it and `build.log` are removed (the log is kept if there were
+warnings); use `--keep` to keep them.  `./build.sh --restore [YYYYMMDD]`
+brings back the installation of a previous day kept with `--keep`.
 
 The packages in `build.sh` are built and installed in
 `~/.local/bin/emacs-git`, nothing is installed in the system (the
@@ -31,7 +33,8 @@ tag of the pinned packages.
 
 The packages that only come as tarballs (their versions are in the
 `VERSION` table of `build.sh`) are verified with `SHA256SUMS`.  `--update` moves them (and their checksums) to the
-last version of the same series; a new series (like GnuTLS v3.9) is
+last version of the same series (the old tarball is removed from
+`artifacts` once the new one builds); a new series (like GnuTLS v3.9) is
 reported by `--check-updates` and needs to be changed by hand in
 `build.sh`.  Patches in
 `patches/<package>/*.patch` are applied before the compilation.
