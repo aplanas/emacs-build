@@ -910,7 +910,8 @@ Options:
                    build (by default they are removed; the log is
                    also kept if there were warnings)
   --update         Update the tarball packages to their last version
-                   (and their checksums), and build
+                   (and their checksums), and exit.  The next build
+                   uses them
   --check-updates  Report new versions of the packages, and exit
   --list           Show the packages, their versions and dependencies, and exit
   --pin PKG [REF]  Build the git package PKG from REF (a tag, branch or
@@ -1096,7 +1097,6 @@ PIN_NAME=
 PIN_REF=
 RESTORE_DATE=
 JOBS="$(nproc)"
-ARGS=("$@")
 while [ $# -gt 0 ]; do
     case "$1" in
 	--clean) OPT_CLEAN=1 ;;
@@ -1158,13 +1158,8 @@ case "$COMMAND" in
 	exit 0
 	;;
     update)
-	# Change the versions, and run again without --update to build
 	update_versions
-	args=()
-	for arg in "${ARGS[@]}"; do
-	    [ "$arg" = "--update" ] || args+=("$arg")
-	done
-	exec "$SCRIPT" "${args[@]}"
+	exit 0
 	;;
 esac
 

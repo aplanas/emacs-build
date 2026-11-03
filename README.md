@@ -5,7 +5,7 @@ Simple bash script to build GNU/Emacs from git in openSUSE Tumbleweed.
 ## Usage
 
     ./build.sh                  # update the sources and rebuild what changed
-    ./build.sh --update         # also update the tarballs to their last version
+    ./build.sh --update         # update the tarballs to their last version (no build)
     ./build.sh --check-updates  # report new versions of the tarballs
     ./build.sh --list           # versions and dependencies of the packages
     ./build.sh --help           # all the options
@@ -32,12 +32,14 @@ pins are kept in the file `pins`, and `--check-updates` shows the last
 tag of the pinned packages.
 
 The packages that only come as tarballs (their versions are in the
-`VERSION` table of `build.sh`) are verified with `SHA256SUMS`.  `--update` moves them (and their checksums) to the
-last version of the same series (the old tarball is removed from
-`artifacts` once the new one builds); a new series (like GnuTLS v3.9) is
-reported by `--check-updates` and needs to be changed by hand in
-`build.sh`.  Patches in
-`patches/<package>/*.patch` are applied before the compilation.
+`VERSION` table of `build.sh`) are verified with `SHA256SUMS`.
+`--update` moves them (and their checksums) to the last version of
+the same series, and exits without building: the next `./build.sh`
+uses them, and removes the old tarballs from `artifacts` once the new
+ones build.  A new series (like GnuTLS v3.9) is reported by
+`--check-updates` and needs to be changed by hand in `build.sh`.
+Patches in `patches/<package>/*.patch` are applied before the
+compilation.
 
 Emacs is built for Wayland (PGTK) when `XDG_SESSION_TYPE` is
 `wayland`, and for X11 (GTK3) otherwise.  The packages only needed by
