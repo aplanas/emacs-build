@@ -224,10 +224,15 @@ RESET="\033[0m"
 CURRENT=
 SUCCESS=
 WARNINGS=()
+# Set when something else was printed after a warning, that can be lost
+WARNINGS_HIDDEN=
 
 function say {
     local color="$1" tag="$2"
     shift 2
+    if [ "$tag" != WARNING ] && [ ${#WARNINGS[@]} -gt 0 ]; then
+	WARNINGS_HIDDEN=1
+    fi
     echo -e "${color}${tag}${RESET} $*"
 }
 
@@ -236,7 +241,8 @@ function die {
     exit 1
 }
 
-# A problem that does not stop the build, repeated at the end
+# A problem that does not stop the build, repeated at the end if
+# other messages were printed after it
 function warning {
     say "$YELLOW" WARNING "$@"
     WARNINGS+=("$*")
@@ -1130,7 +1136,10 @@ else
 fi
 SUCCESS=1
 
-for message in "${WARNINGS[@]}"; do
-    say "$YELLOW" WARNING "$message"
-done
+if [ -n "$WARNINGS_HIDDEN" ]; then
+    say "$YELLOW" SUMMARY "${#WARNINGS[@]} warning(s) during the build:"
+    for message in "${WARNINGS[@]}"; do
+	say "$YELLOW" WARNING "$message"
+    done
+fi
 say "$BLUE" DONE ""
