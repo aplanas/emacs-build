@@ -7,7 +7,6 @@
 set -Eeuo pipefail
 
 DIR="$(cd "$(dirname "$0")"; pwd -P)"
-SCRIPT="$DIR/$(basename "$0")"
 
 # ----------------------------------------------------------------------
 # Settings
@@ -22,6 +21,9 @@ PREFIX="$PREFIX_ROOT/emacs-git"
 # Copy of the installation, to restore it if the build fails.  In the
 # same file system than the prefix, so it can be moved quickly
 ROLLBACK="$PREFIX_ROOT/.emacs-git.rollback"
+# The previous configuration, while the new one is installed, when it
+# is not kept as a backup
+OLD_CONFIG="$PREFIX_ROOT/.emacs-git.old-config"
 # How each package was built, to know which ones need a rebuild
 STAMPS="$PREFIX/.build-stamps"
 
@@ -31,6 +33,7 @@ BACKUP_DIR="$DIR/backup"
 LOG="$DIR/build.log"
 CHECKSUMS="$DIR/SHA256SUMS"
 PINS_FILE="$DIR/pins"
+VERSIONS_FILE="$DIR/versions"
 PATCHES="$DIR/patches"
 CONFIG="$DIR/config"
 
@@ -62,17 +65,8 @@ unset LD_LIBRARY_PATH
 # Disable keyring
 export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
 
-# Versions of the packages that only come as tarballs (`--update`
-# changes them)
-declare -A VERSION=(
-    ["aspell6-en"]="2026.02.25-0"
-    ["aspell6-es"]="1.11-2"
-    ["nettle"]="4.0"
-    ["gmp"]="6.3.0"
-    ["libtasn1"]="4.21.0"
-    ["gnutls"]="3.8.13"
-    ["giflib"]="6.1.3"
-)
+# The extensions of the tarballs, as an extended regular expression
+TARBALL_EXT='(tar\.(gz|bz2|xz)|tgz|tbz|txz)'
 
 # ----------------------------------------------------------------------
 # Packages
@@ -187,6 +181,22 @@ PIP_PACKAGES=(
     "python-lsp-ruff"
 )
 
+# How the packages are built: with build_<BUILDER> (autotools by
+# default)
+declare -A BUILDER=(
+    ["aspell6-en"]="aspell_dictionary"
+    ["aspell6-es"]="aspell_dictionary"
+    ["giflib"]="giflib"
+    ["brotli"]="cmake"
+    ["highway"]="cmake"
+    ["libjxl"]="cmake"
+    ["libde265"]="cmake"
+    ["libheif"]="cmake"
+    ["openjpeg"]="cmake"
+    ["tree-sitter"]="make"
+    ["emacs"]="emacs"
+)
+
 # Options for the build (configure or cmake)
 declare -A OPTIONS=(
     ["gnutls"]="--with-included-unistring"
@@ -274,34 +284,53 @@ function on_exit {
     if [[ -n "$CURRENT" && -v METHOD[$CURRENT] ]]; then
 	failure_hint "$CURRENT"
     fi
-    if [ -d "$ROLLBACK" ]; then
-	say "$YELLOW" RESTORING "previous installation"
-	rm -fr "$PREFIX"
-	mv "$ROLLBACK" "$PREFIX"
-    fi
+    restore_rollback "previous installation"
     exit "$status"
+}
+
+# Put back the copy of the installation, if there is one
+function restore_rollback {
+    [ -d "$ROLLBACK" ] || return 0
+    say "$YELLOW" RESTORING "$1"
+    rm -fr "$PREFIX"
+    mv "$ROLLBACK" "$PREFIX"
 }
 
 # ----------------------------------------------------------------------
 # Package state
 # ----------------------------------------------------------------------
 
+# The versions of the packages that only come as tarballs are in the
+# versions file (one "PACKAGE VERSION" per line), changed by --update.
 # The git packages follow their default branch, unless they are pinned
 # to a tag, branch or commit in the pins file (one "PACKAGE REF" per
-# line).  Edited with --pin and --unpin
+# line), changed by --pin and --unpin
+declare -A VERSION=()
 declare -A PINS=()
-function read_pins {
-    local name ref
-    [ -f "$PINS_FILE" ] || return 0
-    while read -r name ref _; do
-	if [[ -n "$name" && "$name" != \#* && -n "${ref:-}" ]]; then
-	    PINS["$name"]="$ref"
+
+# Read a file of "KEY VALUE" lines into an associative array
+# shellcheck disable=SC2034  # table is a reference to the array
+function read_table {
+    local file="$1" key value
+    local -n table="$2"
+    [ -f "$file" ] || return 0
+    while read -r key value _; do
+	if [[ -n "$key" && "$key" != \#* && -n "${value:-}" ]]; then
+	    table["$key"]="$value"
 	fi
-    done < "$PINS_FILE"
+    done < "$file"
 }
 
-function tarball_file {
-    echo "$ARTIFACTS/$(basename "${SOURCE[$1]}")"
+# Replace the line of a table file whose field FIELD is KEY with LINE
+# (added at the end if there is none, and removed if LINE is empty)
+function set_line {
+    local file="$1" field="$2" key="$3" line="$4"
+    awk -v f="$field" -v k="$key" -v line="$line" '
+	$f == k { if (line != "" && !done) print line; done = 1; next }
+	{ print }
+	END { if (line != "" && !done) print line }
+    ' "$file" >"$file.new"
+    mv "$file.new" "$file"
 }
 
 # The version of the source: the commit for git, the file otherwise
@@ -324,7 +353,11 @@ function package_stamp {
 	echo "${OPTIONS[$name]:-}"
 	echo "$PREFIX $CPPFLAGS $CFLAGS $LDFLAGS"
 	cat "$PATCHES/$name"/*.patch 2>/dev/null || true
-	declare -f "build_${name//-/_}" build_autotools build_cmake build_make || true
+	case "${BUILDER[$name]:-autotools}" in
+	    autotools|cmake|make) ;;
+	    *) declare -f "build_${BUILDER[$name]}" ;;
+	esac
+	declare -f build_autotools build_cmake build_make
 	for dep in ${DEPENDS[$name]}; do
 	    echo "$dep ${STAMP_OF[$dep]}"
 	done
@@ -532,20 +565,11 @@ function build_make {
     run env PREFIX="$PREFIX" make install
 }
 
-# Build functions for specific packages: build_<name>, with the dashes
-# replaced by underscores
+# The dictionaries are installed where aspell is (not in --prefix)
 function build_aspell_dictionary {
     run ./configure
     run make "${MAKE_JOBS[@]}"
     run make install
-}
-
-function build_aspell6_en {
-    build_aspell_dictionary
-}
-
-function build_aspell6_es {
-    build_aspell_dictionary
 }
 
 function build_giflib {
@@ -579,7 +603,7 @@ function prepare_source {
 	tmp="$ARTIFACTS/.extract"
 	rm -fr "$tmp"
 	mkdir "$tmp"
-	run tar -xf "$(tarball_file "$name")" -C "$tmp"
+	run tar -xf "$ARTIFACTS/$(source_version "$name")" -C "$tmp"
 	top=("$tmp"/*)
 	[[ ${#top[@]} -eq 1 && -d "${top[0]}" ]] || die "the tarball of $name has not a single directory"
 	mv "${top[0]}" "$BUILD"
@@ -595,30 +619,11 @@ function prepare_source {
     done
 }
 
-# Build and install a package from $BUILD
-function build_in_place {
-    local name="$1" options="${OPTIONS[$1]:-}" function="build_${1//-/_}"
-    if declare -F "$function" >/dev/null; then
-	say "$GREEN" COMPILING "$name"
-	"$function" "$options"
-    elif [ -f configure.ac ] || [ -f configure.sh ] || [ -f autogen.sh ]; then
-	say "$GREEN" COMPILING "$name (autotools)"
-	build_autotools "$options"
-    elif [ -f Makefile ]; then
-	say "$GREEN" COMPILING "$name (make)"
-	build_make
-    elif [ -f CMakeLists.txt ]; then
-	say "$GREEN" COMPILING "$name (cmake)"
-	build_cmake "$options"
-    else
-	die "unknown build system for $name"
-    fi
-}
-
 function build_package {
-    local name="$1"
+    local name="$1" builder="${BUILDER[$1]:-autotools}"
     prepare_source "$name"
-    ( cd "$BUILD" && build_in_place "$name" )
+    say "$GREEN" COMPILING "$name ($builder)"
+    ( cd "$BUILD" && "build_$builder" "${OPTIONS[$name]:-}" )
     rm -fr "$BUILD"
     mkdir -p "$STAMPS"
     echo "${STAMP_OF[$name]}" > "$STAMPS/$name"
@@ -663,74 +668,55 @@ function snapshot_prefix {
     fi
 }
 
-# After a successful build, the previous installation is the backup of
-# the day (only with --keep, it is discarded otherwise)
+# After a successful build, with --keep the previous installation is
+# the backup of the day (if there is not one already)
 function release_snapshot {
     local backup="$BACKUP_DIR/emacs-git_$TODAY"
     [ -d "$ROLLBACK" ] || return 0
-    if [ -z "$OPT_KEEP" ] || [ -d "$backup" ]; then
-	rm -fr "$ROLLBACK"
-    else
+    if [ -n "$OPT_KEEP" ] && [ ! -d "$backup" ]; then
 	say "$GREEN" BACKUP "previous installation to $backup"
 	mkdir -p "$BACKUP_DIR"
 	mv "$ROLLBACK" "$backup"
+    else
+	rm -fr "$ROLLBACK"
     fi
 }
 
-# Backups made by this build, removed at the end unless --keep is used
-NEW_BACKUPS=()
-
-# Move a file to the backup of the day, if there is not one already
+# Move a file out of the way, if it was not moved already: into the
+# backup of the day with --keep, and into OLD_CONFIG (removed after the
+# installation) otherwise
 function backup_once {
     local file="$1" backup="$2"
-    if [ -e "$file" ] && [ ! -e "$backup" ]; then
-	say "$GREEN" BACKUP "$file to $backup"
-	mv "$file" "$backup"
-	NEW_BACKUPS+=("$backup")
+    if [ -z "$OPT_KEEP" ]; then
+	backup="$OLD_CONFIG/$(basename "$backup")"
     fi
-}
-
-# Without --keep, remove the configuration backups made by this build.
-# The ones of previous builds (made with --keep) are left alone
-function remove_new_backups {
-    local backup
-    [ -z "$OPT_KEEP" ] || return 0
-    for backup in "${NEW_BACKUPS[@]}"; do
-	rm -fr "$backup"
-    done
-    rmdir "$BACKUP_DIR" 2>/dev/null || true
+    if [ -e "$file" ] && [ ! -e "$backup" ]; then
+	[ -z "$OPT_KEEP" ] || say "$GREEN" BACKUP "$file to $backup"
+	mkdir -p "$(dirname "$backup")"
+	mv "$file" "$backup"
+    fi
 }
 
 # Remove the tarballs (and their checksums) of the versions not used
 # anymore, like the previous version of an updated package.  Done after
 # a successful build, so the old version is there if the new one fails
 function clean_old_tarballs {
-    local name file current=" "
+    local name current=" "
     for name in "${ORDER[@]}"; do
-	if [ "${METHOD[$name]}" = "tarball" ]; then
-	    current+="$(basename "${SOURCE[$name]}") "
-	fi
+	[ "${METHOD[$name]}" != "tarball" ] || current+="$(source_version "$name") "
     done
-    for file in "$ARTIFACTS"/*; do
-	name=$(basename "$file")
-	if [[ -f "$file" && "$name" =~ \.(tar\.(gz|bz2|xz)|tgz|tbz|txz)$ && "$current" != *" $name "* ]]; then
-	    say "$GREEN" CLEANING "$name, not used anymore"
-	    rm -f "$file"
-	fi
-    done
-    awk -v current="$current" '
-	$2 !~ /\.(tar\.(gz|bz2|xz)|tgz|tbz|txz)$/ || index(current, " " $2 " ")
-    ' "$CHECKSUMS" >"$CHECKSUMS.new"
-    if cmp -s "$CHECKSUMS" "$CHECKSUMS.new"; then
-	rm -f "$CHECKSUMS.new"
-    else
-	mv "$CHECKSUMS.new" "$CHECKSUMS"
-    fi
+    while read -r name; do
+	[[ "$name" =~ \.${TARBALL_EXT}$ && "$current" != *" $name "* ]] || continue
+	say "$GREEN" CLEANING "$name, not used anymore"
+	rm -f "$ARTIFACTS/$name"
+	set_line "$CHECKSUMS" 2 "$name" ""
+    done < <({ awk '{ print $2 }' "$CHECKSUMS"; ls "$ARTIFACTS"; } | sort -u)
 }
 
 function install_config {
     local backup="$BACKUP_DIR/.emacs.d_$TODAY" url
-    mkdir -p "$BACKUP_DIR"
+    [ -n "$OPT_KEEP" ] || backup="$OLD_CONFIG/.emacs.d_$TODAY"
+    rm -fr "$OLD_CONFIG"
     backup_once "$EMACS_CONFIG" "$BACKUP_DIR/.gnu-emacs_$TODAY"
     backup_once "$PREFIX_ROOT/emacs" "$BACKUP_DIR/emacs_shim_$TODAY"
     if [ -d "$EMACS_CONFIG_DIR" ] && [ ! -d "$backup" ]; then
@@ -753,6 +739,7 @@ function install_config {
     for url in "${LISP_FILES[@]}"; do
 	cp "$ARTIFACTS/$(basename "$url")" "$EMACS_CONFIG_DIR/lisp"
     done
+    rm -fr "$OLD_CONFIG"
 }
 
 # A script that runs a program from the prefix with its environment
@@ -762,12 +749,7 @@ function create_shim {
     cat >"$shim" <<EOF
 #! /bin/sh
 
-if [ -z \$PYTHONPATH ]; then
-    export PYTHONPATH=$PREFIX/lib64/$PYTHON/site-packages:$PREFIX/lib/$PYTHON/site-packages
-else
-    export PYTHONPATH=\$PYTHONPATH:$PREFIX/lib64/$PYTHON/site-packages:$PREFIX/lib/$PYTHON/site-packages
-fi
-
+export PYTHONPATH=\${PYTHONPATH:+\$PYTHONPATH:}$PYTHONPATH
 export PATH=$PREFIX/bin:\$PATH
 
 $program "\$@"
@@ -817,20 +799,6 @@ function install_links {
     fi
 }
 
-# Warn about the binaries installed now that do not find their
-# libraries without LD_LIBRARY_PATH
-function check_libraries {
-    local start="$1" file missing
-    while IFS= read -r -d '' file; do
-	cmp -s -n 4 "$file" <(printf '\177ELF') || continue
-	missing=$(ldd "$file" 2>/dev/null | grep 'not found' || true)
-	if [ -n "$missing" ]; then
-	    warning "missing libraries for $file:\n$missing"
-	fi
-    done < <(find "$PREFIX"/bin "$PREFIX"/lib "$PREFIX"/lib64 "$PREFIX"/libexec -type f \
-		  \( -perm -u+x -o -name '*.so*' \) -newer "$start" -print0 2>/dev/null)
-}
-
 # ----------------------------------------------------------------------
 # New versions
 # ----------------------------------------------------------------------
@@ -850,8 +818,8 @@ function list_url {
 function newest_version {
     local url="$1" base="${2//./\\.}"
     list_url "$url" \
-	| grep -oE "${base}-[0-9][0-9.-]*[0-9]\.(tar\.(gz|bz2|xz)|tgz|tbz|txz)" \
-	| sed -E "s/^${base}-//; s/\.(tar\.(gz|bz2|xz)|tgz|tbz|txz)\$//" \
+	| grep -oE "${base}-[0-9][0-9.-]*[0-9]\.${TARBALL_EXT}" \
+	| sed -E "s/^${base}-//; s/\.${TARBALL_EXT}\$//" \
 	| sort -uV | tail -n 1 || true
 }
 
@@ -871,23 +839,6 @@ function newest_tarball {
     local name="$1" file
     file=$(basename "${SOURCE[$name]}")
     newest_version "$(dirname "${SOURCE[$name]}")" "${file%%-"${VERSION[$name]}"*}"
-}
-
-# Some projects use a directory per series (like v3.8 or giflib-6.x):
-# print a newer one, if any
-function newest_series {
-    local name="$1" dir series pattern parent newest file
-    dir=$(dirname "${SOURCE[$name]}")
-    series=$(basename "$dir")
-    [[ "$series" =~ [0-9] ]] || return 0
-    pattern=$(sed -E 's/\./\\./g; s/[0-9]+/[0-9]+/g' <<< "$series")
-    parent=$(dirname "$dir")
-    newest=$(list_url "$parent" | grep -oE "(^|[\"/>])${pattern}([\"/<]|\$)" \
-		 | grep -oE "$pattern" | sort -uV | tail -n 1 || true)
-    if is_newer "$series" "$newest"; then
-	file=$(basename "${SOURCE[$name]}")
-	echo "$newest (version $(newest_version "$parent/$newest" "${file%%-"${VERSION[$name]}"*}")), in $parent/$newest"
-    fi
 }
 
 # ----------------------------------------------------------------------
@@ -926,7 +877,7 @@ EOF
 }
 
 function cmd_list {
-    local name version built
+    local name version built needed
     for name in "${ORDER[@]}"; do
 	case "${METHOD[$name]}" in
 	    tarball) version=$(basename "${SOURCE[$name]}") ;;
@@ -942,13 +893,14 @@ function cmd_list {
 	    echo "    last built: $built"
 	fi
 	[ -z "${DEPENDS[$name]}" ] || echo "    depends on: ${DEPENDS[$name]}"
-	[ -z "$(dependents "$name")" ] || echo "    needed by:  $(dependents "$name")"
+	needed=$(dependents "$name")
+	[ -z "$needed" ] || echo "    needed by:  $needed"
     done
     echo -e "${GREEN}Python packages${RESET} [pip] ${PIP_PACKAGES[*]}"
 }
 
 function cmd_check_updates {
-    local name newest series
+    local name newest
     for name in "${ORDER[@]}"; do
 	if [[ -v PINS[$name] ]]; then
 	    say "$YELLOW" PINNED "$name: ${PINS[$name]} (last tag: $(newest_tag "${SOURCE[$name]}"))"
@@ -962,15 +914,12 @@ function cmd_check_updates {
 	else
 	    say "$GREEN" "UP TO DATE" "$name: ${VERSION[$name]}"
 	fi
-	series=$(newest_series "$name")
-	[ -z "$series" ] || say "$BLUE" "NEW SERIES" "$name: $series"
     done
-    echo "To update the tarballs to the last version in the same series: ./$(basename "$0") --update"
+    echo "To update the tarballs to the last version in the same directory: ./$(basename "$0") --update"
     echo "The git packages follow their default branch, unless they are pinned (--pin)"
 }
 
-# Change the versions of the tarball packages in this script, and add
-# the checksums of the new files (trusted, downloaded with HTTPS)
+# Change the versions of the tarball packages, and add the checksums of the new files (trusted, downloaded with HTTPS)
 function update_versions {
     local name newest url file
     mkdir -p "$ARTIFACTS"
@@ -991,11 +940,10 @@ function update_versions {
 	fi
 	mv "$file.part" "$file"
 	# The old tarball and its checksum are removed after the build
-	# succeeds, so it can be set back in VERSION if the new one fails
-	awk -v new="$(basename "$file")" '$2 != new' "$CHECKSUMS" >"$CHECKSUMS.new"
-	echo "$(sha256sum "$file" | cut -d' ' -f1)  $(basename "$file")" >>"$CHECKSUMS.new"
-	mv "$CHECKSUMS.new" "$CHECKSUMS"
-	sed -i "s|^\([[:space:]]*\[\"$name\"\]=\)\"${VERSION[$name]//./\\.}\"|\1\"$newest\"|" "$SCRIPT"
+	# succeeds, so it can be set back in the versions file if the new
+	# one fails
+	set_line "$CHECKSUMS" 2 "$(basename "$file")" "$(sha256sum "$file" | cut -d' ' -f1)  $(basename "$file")"
+	set_line "$VERSIONS_FILE" 1 "$name" "$name $newest"
     done
 }
 
@@ -1004,14 +952,12 @@ function cmd_pin {
     local name="$1" ref="$2"
     [ "${METHOD[$name]:-}" = "git" ] || die "$name is not a git package"
     [ -f "$PINS_FILE" ] || echo "# PACKAGE TAG, BRANCH OR COMMIT" >"$PINS_FILE"
-    awk -v n="$name" '$1 != n' "$PINS_FILE" >"$PINS_FILE.new"
+    set_line "$PINS_FILE" 1 "$name" "${ref:+$name $ref}"
     if [ -n "$ref" ]; then
-	echo "$name $ref" >>"$PINS_FILE.new"
 	say "$BLUE" PINNED "$name to $ref, used in the next build"
     else
 	say "$BLUE" UNPINNED "$name, the next build uses its default branch"
     fi
-    mv "$PINS_FILE.new" "$PINS_FILE"
 }
 
 # The backups were installed in the same prefix, so they can be copied
@@ -1035,9 +981,9 @@ function cmd_restore {
 }
 
 function cmd_build {
-    local name tool start="$ARTIFACTS/.build-start"
+    local name tool
 
-    for tool in git wget tar patch make cmake ninja gcc g++ autoreconf pip ldd; do
+    for tool in git wget tar patch make cmake ninja gcc g++ autoreconf pip; do
 	command -v "$tool" >/dev/null || die "$tool is required"
     done
     for name in "${OPT_REBUILD[@]}"; do
@@ -1049,7 +995,6 @@ function cmd_build {
     [ -d "$STAMPS" ] || OPT_CLEAN=1
 
     mkdir -p "$ARTIFACTS"
-    touch "$start"
     fetch_sources
     plan_builds
 
@@ -1076,11 +1021,8 @@ function cmd_build {
     CURRENT="configuration"
     install_config
     install_links
-    check_libraries "$start"
     release_snapshot
-    remove_new_backups
     clean_old_tarballs
-    rm -f "$start"
 }
 
 # ----------------------------------------------------------------------
@@ -1132,8 +1074,10 @@ while [ $# -gt 0 ]; do
 done
 MAKE_JOBS=(-j "$JOBS" -l "$(nproc --ignore=1)")
 
+[ -f "$VERSIONS_FILE" ] || die "$VERSIONS_FILE not found"
+read_table "$VERSIONS_FILE" VERSION
+read_table "$PINS_FILE" PINS
 declare_packages
-read_pins
 
 case "$COMMAND" in
     list) cmd_list; exit 0 ;;
@@ -1170,11 +1114,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 # A previous build was killed before restoring the installation
-if [ -d "$ROLLBACK" ]; then
-    say "$YELLOW" RESTORING "installation from an interrupted build"
-    rm -fr "$PREFIX"
-    mv "$ROLLBACK" "$PREFIX"
-fi
+restore_rollback "installation from an interrupted build"
 
 if [ "$COMMAND" = "restore" ]; then
     cmd_restore "$RESTORE_DATE"

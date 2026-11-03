@@ -1,0 +1,8 @@
+# PACKAGE VERSION (of the tarballs, changed by --update)
+aspell6-en 2026.02.25-0
+aspell6-es 1.11-2
+nettle 4.0
+gmp 6.3.0
+libtasn1 4.21.0
+gnutls 3.8.13
+giflib 6.1.3
